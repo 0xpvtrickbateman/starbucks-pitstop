@@ -1,0 +1,575 @@
+{
+  "syncStartedAt": "2026-04-09T06:02:48.646Z",
+  "syncEndedAt": "2026-04-09T06:02:48.903Z",
+  "elapsedMs": 257,
+  "dryRun": true,
+  "source": "overture",
+  "sourceBlocker": null,
+  "release": "2026-02-18.0",
+  "dataset": "Overture Maps places",
+  "exportPath": "/Users/jake/starbucks-pitstop/docs/research/latest-overture-starbucks-us.json",
+  "counts": {
+    "rawRows": 23476,
+    "uniqueStores": 19928,
+    "includedStores": 13532,
+    "excludedStores": 6396
+  },
+  "includedByType": {
+    "unknown": 13532
+  },
+  "excludedByReason": {
+    "hotel": 39,
+    "campus": 254,
+    "embedded-office": 621,
+    "hospital": 36,
+    "airport": 109,
+    "grocery": 210,
+    "stadium": 17,
+    "pickup-only": 17,
+    "ambiguous-format": 5093
+  },
+  "includedSamples": [
+    {
+      "id": "8301",
+      "name": "Starbucks",
+      "city": "Kapaa",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "18197",
+      "name": "Starbucks",
+      "city": "Lihue",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1007453",
+      "name": "Starbucks",
+      "city": "Lihue",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "13923",
+      "name": "Starbucks",
+      "city": "Lihue",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "6981",
+      "name": "Starbucks",
+      "city": "Koloa",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "15327",
+      "name": "Starbucks",
+      "city": "Mililani Town",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1005484",
+      "name": "Starbucks",
+      "city": "Mililani Town",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "16968",
+      "name": "Starbucks",
+      "city": "Wahiawa",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1021444",
+      "name": "Starbucks",
+      "city": "Haleiwa",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "10295",
+      "name": "Starbucks",
+      "city": "Kapolei",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1026251",
+      "name": "Starbucks",
+      "city": "Kapolei",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1025695",
+      "name": "Starbucks",
+      "city": "Kapolei",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1027502",
+      "name": "Starbucks",
+      "city": "Waianae",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "16951",
+      "name": "Starbucks",
+      "city": "Waianae",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "8049",
+      "name": "Starbucks",
+      "city": "Waipahu",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "1021348",
+      "name": "Starbucks",
+      "city": "Waipahu",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "15324",
+      "name": "Starbucks",
+      "city": "Aiea",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "9311",
+      "name": "Starbucks",
+      "city": "Waipahu",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "17828",
+      "name": "Starbucks",
+      "city": "Waipahu",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    },
+    {
+      "id": "15337",
+      "name": "Starbucks",
+      "city": "Aiea",
+      "state": "HI",
+      "storeType": "unknown",
+      "features": [
+        "coffee_shop",
+        "official-store-url",
+        "open"
+      ]
+    }
+  ],
+  "excludedSamples": [
+    {
+      "id": "1040485",
+      "name": "Starbucks",
+      "city": "Honolulu",
+      "state": "HI",
+      "exclusionReason": "hotel",
+      "notes": [
+        "Excluded hotel fallback candidate."
+      ]
+    },
+    {
+      "id": "89773",
+      "name": "Starbucks",
+      "city": "Honolulu",
+      "state": "HI",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "11041",
+      "name": "Starbucks",
+      "city": "Kailua",
+      "state": "HI",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "7295",
+      "name": "Starbucks",
+      "city": "National City",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "11227",
+      "name": "Starbucks",
+      "city": "National City",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1017578",
+      "name": "Starbucks",
+      "city": "National City",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1027074",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "9838",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "16279",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1014103",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "11487",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "16862",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1010295",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1020698",
+      "name": "Starbucks",
+      "city": "La Mesa",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "18658",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "8953",
+      "name": "Starbucks",
+      "city": "La Mesa",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "12178",
+      "name": "Starbucks",
+      "city": "La Mesa",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1010339",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "16505",
+      "name": "Starbucks",
+      "city": "San Diego",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "15555",
+      "name": "Starbucks",
+      "city": "Santa Ana",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1027849",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1018232",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "hospital",
+      "notes": [
+        "Excluded healthcare/secure-access fallback candidate."
+      ]
+    },
+    {
+      "id": "16029",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1019281",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    },
+    {
+      "id": "1012235",
+      "name": "Starbucks",
+      "city": "Newport Beach",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1014493",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "11908",
+      "name": "Starbucks",
+      "city": "Irvine",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1006589",
+      "name": "Starbucks",
+      "city": "Valley Center",
+      "state": "CA",
+      "exclusionReason": "hotel",
+      "notes": [
+        "Excluded hotel fallback candidate."
+      ]
+    },
+    {
+      "id": "1009567",
+      "name": "Starbucks",
+      "city": "Camp Pendleton Marine Corps Base",
+      "state": "CA",
+      "exclusionReason": "embedded-office",
+      "notes": [
+        "Excluded embedded-office or embedded-retail fallback candidate."
+      ]
+    },
+    {
+      "id": "1020296",
+      "name": "Starbucks",
+      "city": "Oceanside",
+      "state": "CA",
+      "exclusionReason": "campus",
+      "notes": [
+        "Excluded campus fallback candidate."
+      ]
+    }
+  ]
+}

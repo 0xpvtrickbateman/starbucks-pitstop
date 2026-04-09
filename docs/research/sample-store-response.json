@@ -1,0 +1,216 @@
+[
+  {
+    "distance": 0.0925,
+    "isFavorite": false,
+    "isNearby": true,
+    "isPrevious": false,
+    "recommendationReason": "NEARBY",
+    "store": {
+      "id": "11917",
+      "closingSoon": false,
+      "storeNumber": "3347-9592",
+      "name": "3rd & Madison",
+      "ownershipTypeCode": "CO",
+      "phoneNumber": "REDACTED",
+      "open": false,
+      "isOpen24Hours": false,
+      "openStatusFormatted": "Opens Thursday at 5:30 AM",
+      "hoursStatusFormatted": "Open 5:30 AM-6:00 PM",
+      "address": {
+        "lines": [
+          "999 3rd Ave",
+          "First Interstate Center",
+          "Seattle, WA 98104"
+        ],
+        "singleLine": "999 3rd Ave, Seattle",
+        "streetAddressLine1": "999 3rd Ave",
+        "streetAddressLine2": "First Interstate Center",
+        "streetAddressLine3": null,
+        "city": "Seattle",
+        "countrySubdivisionCode": "WA",
+        "countryCode": "US",
+        "postalCode": "98104"
+      },
+      "schedule": [
+        {
+          "dayFormatted": "Wednesday",
+          "dayOfWeek": "WEDNESDAY",
+          "hoursFormatted": "5:30 AM to 6:00 PM",
+          "holidayFormatted": "",
+          "open": true
+        },
+        {
+          "dayFormatted": "Thursday",
+          "dayOfWeek": "THURSDAY",
+          "hoursFormatted": "5:30 AM to 6:00 PM",
+          "holidayFormatted": "",
+          "open": true
+        }
+      ],
+      "amenities": [
+        {
+          "code": "16",
+          "name": "In Store"
+        },
+        {
+          "code": "XO",
+          "name": "Mobile Order and Pay"
+        },
+        {
+          "code": "NB",
+          "name": "Nitro Cold Brew"
+        },
+        {
+          "code": "WA",
+          "name": "Oven-warmed Food"
+        },
+        {
+          "code": "DR",
+          "name": "Redeem Rewards"
+        },
+        {
+          "code": "GO",
+          "name": "Starbucks Wi-Fi"
+        }
+      ],
+      "pickUpOptions": [
+        {
+          "code": "16",
+          "name": "In store",
+          "available": false
+        }
+      ],
+      "coordinates": {
+        "latitude": 47.60528,
+        "longitude": -122.33437
+      },
+      "mobileOrdering": {
+        "availability": "NOT_READY",
+        "guestOrdering": true,
+        "stallQuantity": null
+      },
+      "regulations": [],
+      "acceptsNonSvcMop": true,
+      "acceptedCampusCardIssuers": null,
+      "warningLabels": [
+        {
+          "code": "CL",
+          "label": "Closed"
+        }
+      ],
+      "slug": "3rd-madison-999-3rd-ave-seattle-wa-981044019-us",
+      "timeZone": {
+        "timeZoneId": "GMT-08:00 America/Los_Angeles"
+      },
+      "internalFeatures": [
+        {
+          "code": "SE",
+          "name": "Mobile Multi Tender"
+        },
+        {
+          "code": "GC",
+          "name": "Guest Checkout"
+        }
+      ],
+      "marketBusinessUnitCode": null
+    }
+  },
+  {
+    "distance": 0.3027,
+    "isFavorite": false,
+    "isNearby": true,
+    "isPrevious": false,
+    "recommendationReason": "NEARBY",
+    "store": {
+      "id": "89776",
+      "closingSoon": false,
+      "storeNumber": "16891-168546",
+      "name": "Target Seattle Pike Plaza 2786",
+      "ownershipTypeCode": "LS",
+      "phoneNumber": "REDACTED",
+      "open": false,
+      "isOpen24Hours": false,
+      "openStatusFormatted": "Opens Thursday at 8:00 AM",
+      "hoursStatusFormatted": "Open 8:00 AM-7:00 PM",
+      "address": {
+        "lines": [
+          "1401 2nd Ave",
+          "Seattle, WA 98101"
+        ],
+        "singleLine": "1401 2nd Ave, Seattle",
+        "streetAddressLine1": "1401 2nd Ave",
+        "streetAddressLine2": null,
+        "streetAddressLine3": null,
+        "city": "Seattle",
+        "countrySubdivisionCode": "WA",
+        "countryCode": "US",
+        "postalCode": "98101"
+      },
+      "schedule": [
+        {
+          "dayFormatted": "Wednesday",
+          "dayOfWeek": "WEDNESDAY",
+          "hoursFormatted": "8:00 AM to 7:00 PM",
+          "holidayFormatted": "",
+          "open": true
+        },
+        {
+          "dayFormatted": "Thursday",
+          "dayOfWeek": "THURSDAY",
+          "hoursFormatted": "8:00 AM to 7:00 PM",
+          "holidayFormatted": "",
+          "open": true
+        }
+      ],
+      "amenities": [
+        {
+          "code": "BE",
+          "name": "Blonde Espresso"
+        },
+        {
+          "code": "16",
+          "name": "In Store"
+        },
+        {
+          "code": "NB",
+          "name": "Nitro Cold Brew"
+        },
+        {
+          "code": "DR",
+          "name": "Redeem Rewards"
+        }
+      ],
+      "pickUpOptions": [
+        {
+          "code": "16",
+          "name": "In store",
+          "available": false
+        }
+      ],
+      "coordinates": {
+        "latitude": 47.60837,
+        "longitude": -122.33844
+      },
+      "mobileOrdering": {
+        "availability": "NOT_ELIGIBLE",
+        "guestOrdering": false,
+        "stallQuantity": null
+      },
+      "regulations": [],
+      "acceptsNonSvcMop": false,
+      "acceptedCampusCardIssuers": null,
+      "warningLabels": [
+        {
+          "code": "CL",
+          "label": "Closed"
+        }
+      ],
+      "slug": "target-seattle-pike-plaza-2786-1401-2nd-ave-seattle-wa-981012007-us",
+      "timeZone": {
+        "timeZoneId": "GMT-08:00 America/Los_Angeles"
+      },
+      "internalFeatures": [],
+      "marketBusinessUnitCode": "TARGCO"
+    }
+  }
+]
