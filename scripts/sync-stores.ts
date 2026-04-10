@@ -6,7 +6,13 @@ import process from "node:process";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+
+// Load .env.local the same way the Next.js runtime does so operators can run
+// `npm run sync-stores` without manually sourcing the file. Must run before
+// any code that reads process.env (notably DEFAULT_OPTIONS.dryRun below).
+loadEnvConfig(process.cwd(), false, { info: () => {}, error: console.error });
 
 import {
   AIRPORT_PATTERNS,
@@ -693,7 +699,7 @@ function toOvertureSyncRow(
     row: {
       id: storeId ?? `overture:${row.overture_id}`,
       name: row.name ?? row.brand_name ?? "Starbucks",
-      address: row.address ?? "Unknown address",
+      street1: row.address ?? "Unknown address",
       city: row.city ?? "Unknown city",
       state: row.state ?? "Unknown state",
       zip: row.zip ?? "00000",
