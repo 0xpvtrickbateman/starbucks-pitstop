@@ -1,16 +1,38 @@
 # Build Status
 
-Last updated: 2026-04-08 MST
+Last updated: 2026-04-10 MST
 
-## Current State
+## Current State: Release candidate
 
-- Phase 0 research has been completed and documented.
-- The app now builds successfully as a deployable Next.js project.
-- Secure Supabase-backed route handlers, mobile-first UI flows, metadata assets, sync tooling, and automated tests are in place.
-- The store sync backbone is validated enough to support deployment once real environment variables are supplied:
-  - official Starbucks locator contract verified
-  - official automation path documented as blocked/unstable from this environment
-  - explicit Overture fallback count captured
+The app builds, passes all automated checks, runs end-to-end against live Supabase both locally and on a Vercel preview, and has a recorded Lighthouse baseline. Status is held at release-candidate until a production-URL smoke test, a warmed-prod Lighthouse audit, and real-device + visual regression checks are completed (see "Follow-ups" below). See `docs/QA.md` for the full 2026-04-10 live verification pass.
+
+## 2026-04-10 Verification Summary
+
+- All four prior migrations confirmed applied live: `initial_schema`, `expand_stores_for_scraper`, `fix_view_address_alias`, `nearby_and_search_rpcs`.
+- One new migration added + applied: `20260410170000_fix_rpc_variable_conflicts.sql`, which fixes an ambiguous-column bug in `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code`. The bug: PL/pgSQL implicitly declares OUT variables for each `RETURNS TABLE` column, which shadowed the real `codes.store_id` / `codes.is_active` columns inside `ON CONFLICT` and a bare `UPDATE ... WHERE` target. Fix: `#variable_conflict use_column` plus an alias on the late-stage UPDATE. This bug blocked live code submission until the fix migration landed.
+- Overture store sync ran with `--upsert`: 21,879 rows total, 15,483 included, 6,396 excluded.
+- Local smoke against real Supabase: radius ordering correct, bbox scoping tight, search safety strings return 200, code submit + upvote + downvote + duplicate-vote (409) verified.
+- Vercel preview smoke: page 200, `/api/locations` (radius + bbox), `/api/search`, and full submit+vote persistence verified through the deployed preview. Preview: https://starbucks-pitstop-atw9u7mkg-williamjake.vercel.app (SSO protected; temporarily unprotected for the smoke + Lighthouse window, then restored).
+- Lighthouse captured — Performance 59, Accessibility 100, Best Practices 96, SEO 60 (second-pass rerun after redeploy; initial cold-hit preview was Performance 35). Report at `docs/research/lighthouse-preview.report.html`. Performance is still cold-start sensitive on a fresh preview and is tracked as a warm-path follow-up, not a release blocker.
+
+## 2026-04-10 Second-pass Remediation (post code review)
+
+A second review surfaced six issues — all fixed, applied, and reverified on 2026-04-10. Full detail in `docs/QA.md`.
+
+- **High**: rate-limit DB fallback was unindexed. Added `20260410180000_rate_limit_fallback_indexes.sql`: composite indexes `codes(submitted_by_hash, created_at DESC)` and `votes(voter_hash, created_at DESC)`. `EXPLAIN` confirms `Index Only Scan` on both.
+- **Medium**: `fetchStoreById` did not filter `is_excluded = false`, so excluded stores still rendered on `/location/[id]`. Fixed in `src/lib/store-data.ts`.
+- **Medium**: all four API routes collapsed internal errors into 400 with raw DB text. Added `src/lib/api-errors.ts`: `ZodError` → 400 with per-field details, internal errors → 500 generic with the real error logged. Preserves explicit 409/404/429 paths.
+- **Medium**: `scripts/sync-stores.ts` read `process.env` without loading `.env.local`. Added `@next/env` `loadEnvConfig` at the top of the script so `npm run sync-stores -- --source=overture` works straight from the README instructions.
+- **Low**: `search_stores_by_text` had `LIMIT` without `ORDER BY`; the UI auto-selects `results[0]`. Added `20260410180500_search_stores_deterministic_order.sql` with `CASE`-based ranking and a `(name, id)` tiebreaker. Smoke-verified: `results[0]` for "Seattle" is stable across calls.
+- **Low**: `README.md` and `docs/BUILD_STATUS.md` referenced migration filenames that do not exist on disk. Both updated to match the real filenames.
+
+## Follow-ups (non-blocking)
+
+1. Rerun Lighthouse against a warmed production URL (with custom domain) for a representative performance baseline; second-pass preview already climbed from 35 → 59 on cache warmup alone.
+2. Human-visual walkthrough at 375 / 768 / 1024 / 1440 widths.
+3. Real Mapbox clustering / zoom / pan walkthrough at z14+ on a real device.
+4. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
+5. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
 
 ## Completed
 
@@ -36,17 +58,23 @@ Last updated: 2026-04-08 MST
 - Generated favicon, manifest, Apple touch icon, and OG image assets from the supplied logo
 - Added unit coverage for normalization, validation, and scoring helpers
 - Added mocked Playwright coverage for desktop and mobile search/submit/vote flows
-- Verified:
-  - `npm run lint`
-  - `npm run build`
-  - `npm run test`
-  - `npm run test:e2e`
+- Added a local in-memory backend fallback for development and optional local preview mode without Supabase credentials
+- Added a Mapbox-token-missing fallback panel so local search and store detail flows still work without an interactive map token
 
-## In Progress
+### 2026-04-09 production remediation pass
 
-- Live environment validation against a real Supabase project and populated `stores` table
-- Lighthouse measurement against a running deployed URL
-- Final manual QA pass at all target viewport widths with real data
+- **Fixed map clustering scope**: Clustering now operates against the current viewport bounds (with a 1.5x buffer) instead of world bounds. This prevents performance degradation from clustering ~13.5k stores at high zoom levels.
+- **Fixed store retrieval ordering**: Bounding-box queries now apply `.order("name")` before `.limit()` for deterministic results. Radius queries now use a PostGIS-backed `nearby_stores` RPC with `ST_DWithin` and `ST_Distance` for correct distance filtering and ordering in SQL.
+- **Fixed unsafe search query construction**: Raw user input is no longer interpolated into PostgREST `.or()` filter expressions. Search now uses a parameterized `search_stores_by_text` RPC. Commas, parentheses, quotes, and other special characters in search input are handled safely.
+- **Fixed mobile sheet expand affordance**: The collapsed mobile sheet chevron button now correctly toggles between expanded and collapsed states. The close (X) button remains a separate action that clears the selection.
+- **Added new migration**: `supabase/migrations/20260410164503_nearby_and_search_rpcs.sql` with `nearby_stores` and `search_stores_by_text` RPC functions
+- **Added targeted test coverage**: search safety (10 tests), store query behavior (8 tests), viewport bounds calculation (4 tests)
+- Verified all automated checks pass:
+  - `npm run lint` — passed
+  - `npx tsc --noEmit` — passed
+  - `npm run test` — 53 tests passed across 8 files
+  - `npm run build` — passed
+  - `npm audit --omit=dev` — 0 vulnerabilities
 
 ## Known Risks
 
@@ -57,10 +85,9 @@ Last updated: 2026-04-08 MST
 - The official Starbucks locator is now returning Akamai `403 Access Denied` responses to this automation environment, which makes the primary sync path unstable for unattended use
 - The Overture fallback is publicly queryable, but it has weaker ownership/type fidelity than the official Starbucks response
 - Browser automation tests are currently mocked at the network layer; they verify the product flows but not a live Supabase-backed deployment
-- Lighthouse has not been captured in this environment yet
+- The local mock backend is intentionally seeded and ephemeral; it is for developer bootstrapping only and is not a replacement for real Supabase validation
+- Lighthouse Performance score is captured on a cold-hit Vercel preview; warm-path performance on a production domain is expected to be materially higher (see follow-ups).
 
 ## Next Actions
 
-1. Provision Supabase and Mapbox environment variables.
-2. Run `npm run sync-stores -- --source=overture` against the real Supabase project.
-3. Deploy to Vercel and verify live location queries, code submission, and voting with production data.
+Most pre-production tasks have been completed (see `docs/QA.md` for the 2026-04-10 verification log). Remaining non-blocking follow-ups are tracked in the "2026-04-10 Second-pass Remediation" section above.

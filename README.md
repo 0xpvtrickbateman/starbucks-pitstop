@@ -43,6 +43,9 @@ Copy `.env.example` to `.env.local` and provide:
 - `UPSTASH_REDIS_REST_URL` optional but recommended
 - `UPSTASH_REDIS_REST_TOKEN` optional but recommended
 - `OVERTURE_RELEASE` optional, defaults to `2026-02-18.0`
+- `STARBUCKS_PITSTOP_LOCAL_MOCK` optional, set to `1` to force the local in-memory backend without Supabase
+
+Blank values in `.env.local` are treated as unset so the template can be copied safely.
 
 ## Install
 
@@ -58,13 +61,25 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Local development fallback behavior:
+
+- when Supabase credentials are missing in `development`, the app falls back to a seeded in-memory backend so search, store details, code submission, and voting still work locally
+- if you want the same fallback while running `npm run build` and `npm run start`, set `STARBUCKS_PITSTOP_LOCAL_MOCK=1`
+- if `NEXT_PUBLIC_MAPBOX_TOKEN` is missing, the interactive map is replaced with a local fallback panel; the rest of the product still works
+
 ## Database setup
 
-Apply the SQL migrations in `supabase/migrations/`.
+Apply the SQL migrations in `supabase/migrations/` in filename order (`supabase db push` handles this automatically once the project is linked).
 
-Current migration:
+Current migrations:
 
-- `supabase/migrations/202604080001_initial_schema.sql`
+- `20260409070148_initial_schema.sql` — base tables, RLS, RPCs, views
+- `20260409073115_expand_stores_for_scraper.sql` — additional store columns
+- `20260409073142_fix_view_address_alias.sql` — read-model view alias fix
+- `20260410164503_nearby_and_search_rpcs.sql` — PostGIS `nearby_stores` + parameterized `search_stores_by_text`
+- `20260410170000_fix_rpc_variable_conflicts.sql` — `#variable_conflict use_column` for `submit_code_report`, `recompute_store_code_scores`, `vote_on_code`
+- `20260410180000_rate_limit_fallback_indexes.sql` — composite indexes on `codes(submitted_by_hash, created_at)` and `votes(voter_hash, created_at)` to support the DB rate-limit fallback
+- `20260410180500_search_stores_deterministic_order.sql` — stable ranking + tiebreaker in `search_stores_by_text`
 
 Key database guarantees:
 
@@ -126,6 +141,8 @@ npm run test:e2e
 
 `npm run test:e2e` uses mocked API responses so the core UI flows can be validated without a live Supabase project.
 
+`npm run dev` now also supports a local in-memory backend when Supabase credentials are absent, which keeps the repo usable on a fresh machine.
+
 ## Deployment
 
 Target platform:
@@ -153,6 +170,10 @@ Manual invocation:
 ```bash
 npm run sync-stores -- --source=overture
 ```
+
+## Production status
+
+**Release candidate as of 2026-04-10.** All automated checks pass, critical code-level bugs have been fixed, live Supabase writes and reads have been verified both locally and on a Vercel preview deployment, and Lighthouse has been recorded against the preview (Performance 59, Accessibility 100, Best Practices 96, SEO 60 — see `docs/QA.md` for the warm-path caveat; the first cold-hit preview scored Performance 35 before cache warmup). Status is held at release-candidate pending a smoke test on the actual production URL, a warmed-prod Lighthouse audit, and real-device + visual regression checks. Full verification log in `docs/QA.md`, `docs/BUILD_STATUS.md`, and `docs/BUG_FIX_LOG.md`.
 
 ## Known limitations
 
