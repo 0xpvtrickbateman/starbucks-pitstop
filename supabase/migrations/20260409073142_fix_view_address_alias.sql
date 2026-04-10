@@ -1,0 +1,38 @@
+-- Alias street1 back to "address" in the view so existing app code works unchanged
+DROP VIEW IF EXISTS public_store_read_model;
+CREATE VIEW public_store_read_model AS
+SELECT
+  id,
+  store_number,
+  name,
+  ownership_type,
+  store_type,
+  phone,
+  street1 AS address,
+  street2,
+  street3,
+  city,
+  state,
+  zip,
+  country,
+  latitude,
+  longitude,
+  time_zone,
+  is_open_24hrs,
+  hours_status,
+  hours,
+  features,
+  amenities,
+  pickup_options,
+  internal_features,
+  mobile_ordering,
+  slug,
+  market_unit,
+  accepts_non_svc_mop,
+  is_company_operated,
+  is_excluded,
+  exclusion_reason,
+  last_synced_at,
+  created_at,
+  updated_at
+FROM stores;;

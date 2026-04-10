@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-errors";
 import { hashDeviceId, normalizeCodeInput } from "@/lib/crypto";
+import { isLocalMockBackendEnabled } from "@/lib/config";
+import { submitMockCode } from "@/lib/mock-backend";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { fetchCodesByStoreIds } from "@/lib/store-data";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -20,6 +23,18 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       );
+    }
+
+    if (isLocalMockBackendEnabled()) {
+      const result = submitMockCode({
+        storeId: parsed.storeId,
+        codeDisplay: display,
+        codeNormalized: normalized,
+      });
+
+      return NextResponse.json({
+        ...result,
+      } satisfies CodesResponse);
     }
 
     const supabase = createServiceRoleClient();
@@ -66,11 +81,6 @@ export async function POST(request: Request) {
       codes: codesByStore.get(parsed.storeId) ?? [],
     } satisfies CodesResponse);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unable to submit code",
-      },
-      { status: 400 },
-    );
+    return apiErrorResponse(error, "codes");
   }
 }

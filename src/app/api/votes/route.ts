@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-errors";
 import { hashDeviceId } from "@/lib/crypto";
+import { isLocalMockBackendEnabled } from "@/lib/config";
+import {
+  hashLocalMockDeviceId,
+  submitMockVote,
+} from "@/lib/mock-backend";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { fetchCodesByStoreIds } from "@/lib/store-data";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -11,6 +17,41 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const parsed = voteSubmissionSchema.parse(body);
+
+    if (isLocalMockBackendEnabled()) {
+      try {
+        const result = submitMockVote({
+          codeId: parsed.codeId,
+          voteType: parsed.voteType,
+          voterHash: hashLocalMockDeviceId(parsed.deviceId),
+        });
+
+        return NextResponse.json({
+          codes: result.codes,
+        } satisfies VoteResponse);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("duplicate_vote")) {
+          return NextResponse.json(
+            {
+              error: "You have already voted on this code.",
+            },
+            { status: 409 },
+          );
+        }
+
+        if (error instanceof Error && error.message === "Code not found") {
+          return NextResponse.json(
+            {
+              error: "Code not found",
+            },
+            { status: 404 },
+          );
+        }
+
+        throw error;
+      }
+    }
+
     const supabase = createServiceRoleClient();
     const hashedDeviceId = hashDeviceId(parsed.deviceId);
     const rateLimit = await enforceRateLimit({
@@ -72,11 +113,6 @@ export async function POST(request: Request) {
       codes: codesByStore.get(targetCode.store_id) ?? [],
     } satisfies VoteResponse);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Unable to submit vote",
-      },
-      { status: 400 },
-    );
+    return apiErrorResponse(error, "votes");
   }
 }

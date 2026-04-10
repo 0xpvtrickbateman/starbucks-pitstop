@@ -350,4 +350,4 @@ SELECT
   confidence_score,
   created_at,
   updated_at
-FROM codes;
+FROM codes;;

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { boundingBoxFromRadius, haversineMiles, type BoundingBox } from "@/lib/map";
+import { haversineMiles, type BoundingBox } from "@/lib/map";
 import type { PublicCode, PublicStore, StoreCodeSummary } from "@/types";
 
 interface StoreRow {
@@ -141,6 +141,7 @@ export async function fetchStoresByBoundingBox(
     .lte("longitude", box.east)
     .gte("latitude", box.south)
     .lte("latitude", box.north)
+    .order("name")
     .limit(limit);
 
   if (error) {
@@ -168,6 +169,21 @@ export async function fetchStoresByBoundingBox(
   });
 }
 
+interface NearbyStoreRow {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  latitude: number;
+  longitude: number;
+  ownership_type: string | null;
+  store_type: string | null;
+  features: string[] | null;
+  distance_miles: number;
+}
+
 export async function fetchStoresByRadius(
   supabase: SupabaseClient,
   latitude: number,
@@ -175,19 +191,42 @@ export async function fetchStoresByRadius(
   radiusMiles: number,
   limit = 100,
 ) {
-  const box = boundingBoxFromRadius(latitude, longitude, radiusMiles);
-  const stores = await fetchStoresByBoundingBox(supabase, box, limit * 3, {
-    latitude,
-    longitude,
+  const radiusMeters = radiusMiles * 1609.344;
+
+  const { data, error } = await supabase.rpc("nearby_stores", {
+    p_lat: latitude,
+    p_lng: longitude,
+    p_radius_meters: radiusMeters,
+    p_limit: limit,
   });
 
-  return stores
-    .filter(
-      (store) =>
-        store.distanceMiles !== null && store.distanceMiles <= radiusMiles,
-    )
-    .sort((left, right) => (left.distanceMiles ?? 0) - (right.distanceMiles ?? 0))
-    .slice(0, limit);
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as NearbyStoreRow[];
+  const storeIds = rows.map((row) => row.id);
+  const codesByStore = await fetchCodesByStoreIds(supabase, storeIds, true);
+
+  return rows.map((row) =>
+    toPublicStore(
+      {
+        id: row.id,
+        name: row.name,
+        address: row.address,
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        ownership_type: row.ownership_type,
+        store_type: row.store_type,
+        features: row.features,
+      },
+      codesByStore.get(row.id) ?? [],
+      row.distance_miles,
+    ),
+  );
 }
 
 export async function searchStores(
@@ -195,15 +234,19 @@ export async function searchStores(
   query: string,
   limit = 10,
 ) {
-  const escaped = query.replace(/[%]/g, "");
-  const { data, error } = await supabase
-    .from("public_store_read_model")
-    .select("*")
-    .eq("is_excluded", false)
-    .or(
-      `name.ilike.%${escaped}%,address.ilike.%${escaped}%,city.ilike.%${escaped}%,zip.ilike.%${escaped}%`,
-    )
-    .limit(limit);
+  // `query` is expected to be pre-sanitized and non-degenerate — the
+  // searchQuerySchema transform + refine enforces that before we ever get
+  // here. The guard below is defensive only, for any future caller that
+  // skips the schema: an empty pattern would match every row via `ILIKE
+  // '%%'`, so we refuse it rather than silently fall through to a scan.
+  if (query.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase.rpc("search_stores_by_text", {
+    p_query: query,
+    p_limit: limit,
+  });
 
   if (error) {
     throw error;
@@ -226,6 +269,7 @@ export async function fetchStoreById(supabase: SupabaseClient, storeId: string) 
     .from("public_store_read_model")
     .select("*")
     .eq("id", storeId)
+    .eq("is_excluded", false)
     .maybeSingle();
 
   if (error) {

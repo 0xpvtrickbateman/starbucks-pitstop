@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-errors";
+import { isLocalMockBackendEnabled } from "@/lib/config";
+import {
+  fetchMockStoresByBoundingBox,
+  fetchMockStoresByRadius,
+} from "@/lib/mock-backend";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { expandBoundingBox, parseBoundingBox } from "@/lib/map";
 import { fetchStoresByBoundingBox, fetchStoresByRadius } from "@/lib/store-data";
@@ -12,30 +18,47 @@ export async function GET(request: Request) {
     const parsed = locationsQuerySchema.parse(
       Object.fromEntries(url.searchParams.entries()),
     );
-    const supabase = createServiceRoleClient();
 
     let stores;
     let queryType: "bbox" | "radius";
+    let source: "supabase" | "mock-local" = "supabase";
 
     if (parsed.bbox) {
       const box = expandBoundingBox(parseBoundingBox(parsed.bbox));
-      stores = await fetchStoresByBoundingBox(supabase, box, parsed.limit ?? 500);
+      if (isLocalMockBackendEnabled()) {
+        stores = fetchMockStoresByBoundingBox(box, parsed.limit ?? 500);
+        source = "mock-local";
+      } else {
+        const supabase = createServiceRoleClient();
+        stores = await fetchStoresByBoundingBox(supabase, box, parsed.limit ?? 500);
+      }
       queryType = "bbox";
     } else {
-      stores = await fetchStoresByRadius(
-        supabase,
-        parsed.lat!,
-        parsed.lng!,
-        parsed.radius!,
-        parsed.limit ?? 100,
-      );
+      if (isLocalMockBackendEnabled()) {
+        stores = fetchMockStoresByRadius(
+          parsed.lat!,
+          parsed.lng!,
+          parsed.radius!,
+          parsed.limit ?? 100,
+        );
+        source = "mock-local";
+      } else {
+        const supabase = createServiceRoleClient();
+        stores = await fetchStoresByRadius(
+          supabase,
+          parsed.lat!,
+          parsed.lng!,
+          parsed.radius!,
+          parsed.limit ?? 100,
+        );
+      }
       queryType = "radius";
     }
 
     const response = NextResponse.json({
       stores,
       meta: {
-        source: "supabase",
+        source,
         queryType,
         count: stores.length,
       },
@@ -48,11 +71,6 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Invalid request",
-      },
-      { status: 400 },
-    );
+    return apiErrorResponse(error, "locations");
   }
 }

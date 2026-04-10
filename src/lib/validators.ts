@@ -42,7 +42,31 @@ export const voteSubmissionSchema = z.object({
   deviceId: deviceIdSchema,
 });
 
+// Strip LIKE wildcard metacharacters so user input is treated as literal
+// text by the downstream ILIKE-based RPC. Exported so callers that build a
+// query outside this schema (e.g. tests, internal tooling) can stay aligned.
+export function sanitizeSearchQuery(raw: string): string {
+  return raw.trim().replace(/[%_\\]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function countAlphanumeric(value: string): number {
+  return (value.match(/[a-zA-Z0-9]/g) ?? []).length;
+}
+
 export const searchQuerySchema = z.object({
-  q: z.string().trim().min(2).max(120),
+  // Bound the raw input before the transform so an attacker can't force us
+  // to regex a 10MB string. Sanitization then strips wildcard metachars and
+  // collapses whitespace, and the refinement rejects anything that would
+  // resolve to an effectively empty ILIKE pattern — inputs like "__", "%%",
+  // or "   " would otherwise pass the old min(2) check and trigger a full
+  // table scan via `ILIKE '%%'`.
+  q: z
+    .string()
+    .max(120)
+    .transform(sanitizeSearchQuery)
+    .refine((sanitized) => countAlphanumeric(sanitized) >= 2, {
+      message:
+        "Search query is too short or contains only special characters.",
+    }),
   limit: z.coerce.number().int().min(1).max(25).optional(),
 });

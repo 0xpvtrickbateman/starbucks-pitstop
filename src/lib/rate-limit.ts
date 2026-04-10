@@ -37,24 +37,19 @@ function getRatelimit(scope: RateLimitScope) {
   }
 
   const rule = RATE_LIMIT_RULES[scope];
+  const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = getServerConfig();
+  const ratelimit = new Ratelimit({
+    redis: new Redis({
+      url: UPSTASH_REDIS_REST_URL!,
+      token: UPSTASH_REDIS_REST_TOKEN!,
+    }),
+    limiter: Ratelimit.slidingWindow(rule.limit, `${rule.windowSeconds} s`),
+    analytics: true,
+  });
 
-  if (!existing) {
-    const { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = getServerConfig();
-    const ratelimit = new Ratelimit({
-      redis: new Redis({
-        url: UPSTASH_REDIS_REST_URL!,
-        token: UPSTASH_REDIS_REST_TOKEN!,
-      }),
-      limiter: Ratelimit.slidingWindow(rule.limit, `${rule.windowSeconds} s`),
-      analytics: true,
-    });
+  ratelimitByScope.set(scope, ratelimit);
 
-    ratelimitByScope.set(scope, ratelimit);
-
-    return ratelimit;
-  }
-
-  return null;
+  return ratelimit;
 }
 
 export async function enforceRateLimit(options: {

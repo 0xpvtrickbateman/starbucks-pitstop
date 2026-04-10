@@ -116,15 +116,31 @@ export interface StoreClassification {
 export interface SyncStoreRecord {
   id: string;
   name: string;
-  address: string;
+  street1: string;
+  street2?: string | null;
+  street3?: string | null;
   city: string;
   state: string;
   zip: string;
+  country?: string;
   latitude: number;
   longitude: number;
+  store_number?: string | null;
+  phone?: string | null;
   ownership_type: string | null;
   store_type: string | null;
+  time_zone?: string | null;
+  is_open_24hrs?: boolean | null;
+  hours_status?: string | null;
+  hours?: Record<string, string>;
   features: string[];
+  amenities?: string[];
+  pickup_options?: string[];
+  internal_features?: string[];
+  mobile_ordering?: string | null;
+  slug?: string | null;
+  market_unit?: string | null;
+  accepts_non_svc_mop?: boolean | null;
   is_company_operated: boolean | null;
   is_excluded: boolean;
   exclusion_reason: string | null;
@@ -173,7 +189,7 @@ export interface PublicStore {
 export interface LocationsResponse {
   stores: PublicStore[];
   meta: {
-    source: "supabase";
+    source: "supabase" | "mock-local";
     queryType: "bbox" | "radius";
     count: number;
   };

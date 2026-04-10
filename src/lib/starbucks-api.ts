@@ -535,7 +535,7 @@ export function toSyncStoreRecord(
   return {
     id: store.id,
     name: store.name,
-    address: address || store.address.singleLine || "Unknown address",
+    street1: address || store.address.singleLine || "Unknown address",
     city: store.address.city || "Unknown city",
     state: store.address.countrySubdivisionCode || "Unknown state",
     zip: store.address.postalCode || "00000",

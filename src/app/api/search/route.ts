@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { apiErrorResponse } from "@/lib/api-errors";
+import { isLocalMockBackendEnabled } from "@/lib/config";
+import { searchMockStores } from "@/lib/mock-backend";
 import { searchStores } from "@/lib/store-data";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { searchQuerySchema } from "@/lib/validators";
@@ -10,8 +13,13 @@ export async function GET(request: Request) {
     const parsed = searchQuerySchema.parse(
       Object.fromEntries(url.searchParams.entries()),
     );
-    const supabase = createServiceRoleClient();
-    const stores = await searchStores(supabase, parsed.q, parsed.limit ?? 10);
+    const stores = isLocalMockBackendEnabled()
+      ? searchMockStores(parsed.q, parsed.limit ?? 10)
+      : await searchStores(
+          createServiceRoleClient(),
+          parsed.q,
+          parsed.limit ?? 10,
+        );
     const response = NextResponse.json({
       stores,
     });
@@ -23,11 +31,6 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Invalid request",
-      },
-      { status: 400 },
-    );
+    return apiErrorResponse(error, "search");
   }
 }
