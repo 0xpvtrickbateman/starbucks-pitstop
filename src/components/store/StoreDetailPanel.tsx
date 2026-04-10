@@ -19,6 +19,7 @@ interface StoreDetailPanelProps {
     codeId: string,
     vote: "up" | "down",
   ) => string | void | Promise<string | void>;
+  onToggle?: () => void;
   onClose?: () => void;
 }
 
@@ -190,6 +191,7 @@ export function StoreDetailPanel({
   variant,
   onSubmitCode,
   onVote,
+  onToggle,
   onClose,
 }: StoreDetailPanelProps) {
   const content = (
@@ -202,6 +204,7 @@ export function StoreDetailPanel({
         open={open}
         title={store?.name ?? "Find a Starbucks"}
         subtitle={store ? "Selected location" : "Start nearby"}
+        onToggle={onToggle}
         onClose={onClose}
       >
         {content}

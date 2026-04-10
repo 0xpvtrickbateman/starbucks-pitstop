@@ -106,24 +106,51 @@ function LoadingFrame() {
   );
 }
 
-function EmptyMapFrame() {
+function MissingTokenFrame({
+  stores,
+  onStoreSelect,
+}: {
+  stores: StoreSummary[];
+  onStoreSelect: (storeId: string) => void;
+}) {
+  const previewStores = stores.slice(0, 4);
+
   return (
     <div className="map-frame relative flex h-full min-h-[48rem] items-center justify-center overflow-hidden rounded-[2rem] border border-white/50">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(31,74,61,0.12),transparent_20%),radial-gradient(circle_at_80%_20%,rgba(203,162,88,0.14),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.76),rgba(255,255,255,0.5))]" />
-      <div className="surface-card relative z-10 max-w-md rounded-[2rem] px-6 py-7 text-center">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(31,74,61,0.1),transparent_20%),radial-gradient(circle_at_80%_20%,rgba(203,162,88,0.12),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.76),rgba(255,255,255,0.52))]" />
+      <div className="surface-card relative z-10 max-w-xl rounded-[2rem] px-6 py-7 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-primary-soft text-brand-primary-dark">
           <MapPin className="h-7 w-7" />
         </div>
         <p className="font-functional text-[0.72rem] tracking-[0.32em] text-brand-primary-dark/70">
-          NO STORES LOADED
+          MAP TOKEN REQUIRED
         </p>
         <h2 className="mt-2 font-display text-[1.7rem] leading-tight text-brand-primary-dark">
-          No qualifying stores are loaded in this view yet.
+          The interactive map is disabled until a Mapbox token is configured.
         </h2>
         <p className="mt-3 text-[0.96rem] leading-7 text-text-secondary">
-          Pan the map, zoom in, or search a city or ZIP to load nearby
-          qualifying Starbucks locations.
+          Set <code>NEXT_PUBLIC_MAPBOX_TOKEN</code> to unlock the map. Store
+          search, the detail panel, code submission, and voting still work
+          locally.
         </p>
+
+        {previewStores.length > 0 ? (
+          <div className="mt-6 grid gap-3 text-left">
+            {previewStores.map((store) => (
+              <button
+                key={store.id}
+                type="button"
+                onClick={() => onStoreSelect(store.id)}
+                className="rounded-[1.2rem] border border-brand-primary/10 bg-white/82 px-4 py-3 transition hover:-translate-y-0.5 hover:bg-white"
+              >
+                <p className="font-medium text-brand-primary-dark">{store.name}</p>
+                <p className="mt-1 text-[0.82rem] leading-6 text-text-secondary">
+                  {store.address}, {store.city}, {store.state} {store.zip}
+                </p>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -153,12 +180,26 @@ export function StoreMap({
   }, [stores]);
 
   const clusterFeatures = useMemo(() => {
-    const bounds = [-180, -85, 180, 85] as [number, number, number, number];
+    // Approximate the visible span at the current zoom level with a 1.5x buffer
+    // to prevent clusters from popping in/out during panning.
+    const latSpan = 180 / Math.pow(2, viewport.zoom);
+    const lngSpan = 360 / Math.pow(2, viewport.zoom);
+    const buffer = 1.5;
+    const bounds: [number, number, number, number] = [
+      viewport.longitude - (lngSpan * buffer) / 2,
+      Math.max(-85, viewport.latitude - (latSpan * buffer) / 2),
+      viewport.longitude + (lngSpan * buffer) / 2,
+      Math.min(85, viewport.latitude + (latSpan * buffer) / 2),
+    ];
     return clusterIndex.getClusters(bounds, Math.max(0, Math.round(viewport.zoom))) as MapFeature[];
-  }, [clusterIndex, viewport.zoom]);
+  }, [clusterIndex, viewport.zoom, viewport.latitude, viewport.longitude]);
 
   if (!mapboxToken) {
-    return stores.length > 0 ? <EmptyMapFrame /> : <LoadingFrame />;
+    return stores.length > 0 ? (
+      <MissingTokenFrame stores={stores} onStoreSelect={onStoreSelect} />
+    ) : (
+      <LoadingFrame />
+    );
   }
 
   const mapStyle = "mapbox://styles/mapbox/light-v11";

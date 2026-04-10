@@ -7,6 +7,7 @@ interface MobileSheetProps {
   open: boolean;
   title: string;
   subtitle?: string;
+  onToggle?: () => void;
   onClose?: () => void;
   className?: string;
   children: React.ReactNode;
@@ -16,6 +17,7 @@ export function MobileSheet({
   open,
   title,
   subtitle,
+  onToggle,
   onClose,
   className,
   children,
@@ -35,7 +37,7 @@ export function MobileSheet({
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/10 bg-white/80 text-text-secondary transition hover:bg-white hover:text-brand-primary-dark"
               aria-label={open ? "Collapse details" : "Expand details"}
-              onClick={onClose}
+              onClick={onToggle ?? onClose}
             >
               <ChevronDown
                 className={cn(

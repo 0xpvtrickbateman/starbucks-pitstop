@@ -238,7 +238,11 @@ async function geocodeSearch(query: string) {
 
 export function PitstopShell() {
   const [stores, setStores] = useState<StoreDetailData[]>([]);
-  const [boundsQuery, setBoundsQuery] = useState<string | null>(null);
+  const [boundsQuery, setBoundsQuery] = useState<string | null>(
+    process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+      ? null
+      : "-125.000000,24.500000,-66.500000,49.500000",
+  );
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready">(
     "idle",
@@ -697,6 +701,9 @@ export function PitstopShell() {
         variant="sheet"
         onSubmitCode={submitCode}
         onVote={voteOnCode}
+        onToggle={() => {
+          setPanelMode(panelMode === "collapsed" ? "open" : "collapsed");
+        }}
         onClose={() => {
           clearSelection();
           setPanelMode("collapsed");
