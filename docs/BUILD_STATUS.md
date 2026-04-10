@@ -72,7 +72,7 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - Verified all automated checks pass:
   - `npm run lint` — passed
   - `npx tsc --noEmit` — passed
-  - `npm run test` — 53 tests passed across 8 files
+  - `npm run test` — 80 tests passed across 9 files
   - `npm run build` — passed
   - `npm audit --omit=dev` — 0 vulnerabilities
 

@@ -1,6 +1,6 @@
 # Decisions Log
 
-Last updated: 2026-04-08 MST
+Last updated: 2026-04-10 MST
 
 ## 2026-04-08: Use the official Starbucks locator as the primary ingestion source
 
@@ -152,6 +152,24 @@ Why:
 - Product requirement
 - keeps anonymous anti-abuse controls without exposing device identifiers
 
+## 2026-04-08: Add a dev-only local mock backend when Supabase is absent
+
+Decision:
+
+- When local development starts without Supabase credentials, fall back to a seeded in-memory backend for stores, codes, and votes.
+- Keep that fallback disabled in production unless `STARBUCKS_PITSTOP_LOCAL_MOCK=1` is set explicitly for local preview use.
+
+Why:
+
+- The repository should be runnable on a fresh machine without blocking on external credentials.
+- Fake client-side writes or browser-only mocks would violate the requirement to keep writes server-mediated.
+- A server-only mock path preserves the request contract while keeping local onboarding fast.
+
+Tradeoff:
+
+- The fallback is intentionally ephemeral and only representative, not authoritative.
+- Real Supabase-backed QA is still required before deployment or signoff.
+
 ## 2026-04-08: Document the official creative-site certificate issue
 
 Decision:
@@ -162,6 +180,107 @@ Why:
 
 - This affects provenance and repeatability.
 - The content is still on an official Starbucks domain, but the certificate issue should not be hidden.
+
+## 2026-04-09: Move radius queries to a PostGIS-backed RPC
+
+Decision:
+
+- Replace the bbox-fetch-then-filter-in-memory radius query pattern with a server-side `nearby_stores` RPC that uses `ST_DWithin` and `ST_Distance`.
+
+Why:
+
+- The previous approach applied `.limit()` before ordering, then filtered and sorted an arbitrary subset in memory.
+- In dense metros, this could hide nearby stores or produce inconsistent results.
+- The `stores` table already has a PostGIS `geog` column with a GIST index.
+
+Tradeoff:
+
+- Requires applying the new migration `20260410164503_nearby_and_search_rpcs.sql`.
+
+## 2026-04-09: Move search to a parameterized RPC
+
+Decision:
+
+- Replace raw user-input interpolation into PostgREST `.or()` expressions with a server-side `search_stores_by_text` RPC.
+
+Why:
+
+- User input containing commas, parentheses, or other PostgREST operator-significant characters could break the filter or alter its meaning.
+- Real-world searches like `Seattle, WA` or `Starbucks (Downtown)` are exactly the inputs that would fail.
+
+## 2026-04-09: Cluster against viewport bounds, not world bounds
+
+Decision:
+
+- Compute approximate viewport bounds from latitude, longitude, and zoom level (with a 1.5x buffer) and pass those to `supercluster.getClusters()` instead of hardcoded world bounds.
+
+Why:
+
+- With ~13.5k synced stores, clustering the entire world dataset at high zoom levels caused unnecessary computation and could degrade map interaction quality.
+
+## 2026-04-10: Post-live-verification hardening pass
+
+Decision:
+
+- During and after the first live Supabase + Vercel-preview verification, six classes of architectural correction were applied. They are captured in full (root cause, fix, verification) in `docs/BUG_FIX_LOG.md`. The durable decisions are summarized here so this log remains the authoritative index of architectural choices.
+
+Corrections:
+
+- **`#variable_conflict use_column` for `RETURNS TABLE` PL/pgSQL functions.** `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code` declared output columns whose names collided with the real `codes` table columns (`store_id`, `is_active`, etc.), causing `42702` ambiguous references inside `ON CONFLICT` and bare `UPDATE` targets. The project convention going forward is to add `#variable_conflict use_column` at the top of any PL/pgSQL function whose `RETURNS TABLE` signature shares column names with the tables it writes. Applied via `20260410170000_fix_rpc_variable_conflicts.sql`.
+- **DB rate-limit fallback must be indexed.** `enforceRateLimit` falls back to Supabase `COUNT(*)` scoped to `(hashed_identity, created_at)` when Upstash is not configured. This path must have supporting composite indexes so writes never turn into sequential scans. Applied via `20260410180000_rate_limit_fallback_indexes.sql`, verified with `EXPLAIN` (`Index Only Scan` on both). Upstash is still preferred for distributed correctness but the fallback is now safe.
+- **Deterministic ordering in `search_stores_by_text`.** The UI auto-selects `results[0]` on search, so the RPC must produce a stable ordering. Rank is `CASE`-based (exact city/zip/name first, then prefix, then substring) with a `(name, id)` tiebreaker. Applied via `20260410180500_search_stores_deterministic_order.sql`.
+- **Excluded stores must not render via `/location/[id]`.** The list APIs filtered `is_excluded = false` but `fetchStoreById` did not, so any guessable excluded store ID still rendered a public detail page. The rule is now "every read path that resolves a single store must filter `is_excluded = false`." Fixed in `src/lib/store-data.ts`.
+- **Schema-level sanitization is the single source of truth for search input.** The original split — schema validates raw length, `searchStores` strips wildcards — allowed inputs like `"__"` or `"%%"` to pass validation and become `ILIKE '%%'` (full table scan). The rule is now "any invariant a downstream callee relies on lives in the Zod schema, not in the callee." Applied via `.transform(sanitizeSearchQuery) + .refine(≥2 alnum)` in `searchQuerySchema`.
+- **Shared API error helper owns the HTTP response contract.** `apiErrorResponse` in `src/lib/api-errors.ts` is the single place that maps thrown errors to HTTP responses: `ZodError` → 400 with per-field details, `ApiClientError` → explicit 4xx, `SyntaxError` → 400 `"Invalid JSON in request body."`, anything else → 500 generic (with the real error logged server-side, never echoed to the client). Route handlers must not build ad-hoc error responses in their catch blocks.
+- **`@next/env` `loadEnvConfig` in operator scripts.** `scripts/sync-stores.ts` must not read `process.env` without first calling `loadEnvConfig(process.cwd(), …)`, so `npm run sync-stores` works from a fresh shell without manual `source .env.local`. Any future operator-facing script that reads Supabase env should follow the same pattern.
+
+Why:
+
+- Every item above was surfaced either in live smoke (a failing submit revealed the ambiguous column bug; a 401 revealed the SSO protection flow) or in post-hoc review (degenerate search input; 500-on-bad-JSON; rate-limit table scans). The cost of letting any one of them ship was meaningfully higher than the cost of fixing in-place.
+
+Tradeoff:
+
+- Six additional migrations now sit on top of `20260409070148_initial_schema.sql`. They are each small and idempotent, but operators applying the project fresh have more SQL to run. `supabase db push` handles ordering automatically.
+
+## 2026-04-10: Release coordinator — ship on Supabase-backed rate-limit fallback, provision Upstash before scale
+
+Decision:
+
+- Ship the release candidate with the Supabase-backed rate-limit fallback active (no Upstash in prod env).
+- Provision Upstash (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) as a follow-up before any traffic-scale event.
+
+Why:
+
+- The Supabase fallback is durable across serverless invocations (state lives in the `codes` / `votes` tables, not in per-instance memory), so it is a working rate limiter, not an effectively disabled one.
+- The fallback path is already indexed via `20260410180000_rate_limit_fallback_indexes.sql`, verified with `EXPLAIN` as `Index Only Scan` on both `codes` and `votes`.
+- The DB unique constraints on `(store_id, code_normalized)` and `(code_id, voter_hash)` bound the race window when two concurrent requests both pass the count check before either commits.
+- Provisioning Upstash is a config-only change — no code-path change, no redeploy-blocking work.
+
+Tradeoff:
+
+- Each rate-limited mutation adds an extra Supabase query relative to the Upstash path.
+- Under a concurrent burst from the same hashed device, two simultaneous requests can both read count < limit; the DB-level unique constraints catch the meaningful duplicates, but the soft cap is slightly leaky.
+
+Follow-up:
+
+- Provision Upstash Redis before any public-scale event. Set the two env vars in Vercel prod + preview. No code change required — `getRatelimit()` already gates on `hasUpstashEnv()`.
+
+## 2026-04-10: Release coordinator — canonical production URL is `starbucks-pitstop.vercel.app`
+
+Decision:
+
+- Treat `https://starbucks-pitstop.vercel.app/` as the canonical production URL for the release-candidate launch.
+- Remove the existing 307 redirect to `stopatstarbucks.vercel.app` via the Vercel dashboard. It is not an alias of this project and is not visible under either of the repo owner's two Vercel teams.
+
+Why:
+
+- The redirect is not in the repo code — verified: no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware redirect reference, and `grep -r stopatstarbucks` returns zero hits outside `docs/research/prod-env-summary.md`. The redirect is a Vercel dashboard-level domain setting only.
+- Running Wave 2 verification against an unresolved redirect target introduces ambiguity about which project is actually being smoked.
+- `stopatstarbucks.vercel.app` is not in `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8`'s alias list and `get_deployment` returns 404 against both accessible Vercel teams (`williamjake`, `pvtrick_bateman`).
+
+Follow-up:
+
+- If ownership of `stopatstarbucks.vercel.app` is later proven to be under the same project/team, it may be re-added as a deliberate alias.
 
 ## Pending
 

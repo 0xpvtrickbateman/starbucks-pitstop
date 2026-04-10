@@ -21,7 +21,7 @@ A second review surfaced six additional issues. All fixed and reverified:
 
 - `npm run lint` — pass
 - `npx tsc --noEmit` — pass
-- `npm run test` — 53/53 pass
+- `npm run test` — 80/80 pass
 - `npm run build` — pass
 - Local smoke against real Supabase:
   - `/api/locations?lat=47.6&lng=-122.3&radius=5` → 73 stores, ordered.
@@ -53,7 +53,7 @@ Performance improved from 35 → 59 versus the first preview, primarily due to t
 - `npm run build`
   - passed on 2026-04-09
 - `npm run test`
-  - passed on 2026-04-10 — 53 tests across 8 files
+  - passed on 2026-04-10 — 80 tests across 9 files (53 post-second-pass-remediation + 27 added in Wave 1 security-invariants pass)
   - includes targeted coverage added during the 2026-04-09 remediation pass:
     - search safety: commas, parentheses, quotes, percent signs, backslashes, mixed punctuation (10 tests)
     - store query behavior: bbox filtering, radius ordering, limit enforcement (8 tests)
