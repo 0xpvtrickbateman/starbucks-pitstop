@@ -20,7 +20,7 @@ Generated: 2026-04-10 (Wave-2 gate report)
 https://starbucks-pitstop.vercel.app/  →  HTTP 307  →  https://stopatstarbucks.vercel.app/  →  HTTP 200
 ```
 
-Both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` return HTTP 200 with `x-nextjs-prerender: 1` and HSTS from the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`. HTTPS is active via Vercel's shared TLS. No custom domain, so no separate cert to verify.
+`stopatstarbucks.vercel.app` returns HTTP 200 with `x-nextjs-prerender: 1` and HSTS from the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`. `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returns HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify.
 
 **Assessment (2026-04-10, post-release-push):** The current production deployment serves the release-candidate SHA `745540a` on both aliases. Both domains are attached in the deployment's `alias` list — verified via `get_deployment`. Despite that, the canonical domain still returns an HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
 
@@ -158,13 +158,21 @@ Current state (2026-04-10, post-release-push):
 
 **User action still required before Wave 2 against the canonical URL:** open https://vercel.com/williamjake/starbucks-pitstop/settings/domains and remove the `starbucks-pitstop.vercel.app → stopatstarbucks.vercel.app` redirect rule (or reconfigure it to "serve this deployment").
 
-### BLOCKER 4 — RLS policies missing + SECURITY DEFINER views (MEDIUM)
-Supabase security linter reports ERROR-level findings: no RLS policies on `stores`, `codes`, `votes`; two SECURITY DEFINER views. These need review before a public-facing production launch.
+### ADVISORY — SECURITY DEFINER read-model views bypass RLS (MEDIUM, not a release gate)
+Supabase security linter flags two views as ERROR-level `security_definer_view`:
+
+- `public.public_store_read_model`
+- `public.public_code_read_model`
+
+`SECURITY DEFINER` views enforce the creator's permissions rather than the querying user's, so they bypass RLS on the underlying tables. These views are the surface used by the API routes (`src/lib/store-data.ts`) to expose store and code data, and the intentional design is that each view projects only safe-to-expose columns. The recommended follow-up is to audit the view bodies' column projection and `WHERE` clauses, and to reclassify each view as `SECURITY INVOKER` if the RLS-bypass behavior is not load-bearing. Worth resolving before any public-facing scale event, but not a blocker for the release-candidate launch.
+
+**Clarification on the related RLS-no-policy advisory:** The Supabase linter also reports `rls_enabled_no_policy` on `public.stores`, `public.codes`, and `public.votes`, but that finding is **INFO**-level — see the severity table in section 5 above. It is the intentional server-mediated write pattern (anon clients get Postgres deny-all; all mutations go through server routes using the service-role key) and is NOT a release blocker. Earlier drafts of this document grouped it with the SECURITY DEFINER views under a single BLOCKER heading; that grouping was incorrect and has been split.
 
 ### Non-blocking advisories
 - Mapbox token URL restriction: unverified, follow-up needed.
-- PostGIS in public schema: low risk, advisory only.
-- Function mutable search_path: advisory level, should be remediated post-launch.
+- PostGIS in `public` schema: WARN, low risk.
+- Function `search_path` mutable (`wilson_score`, `nearby_stores`, `set_updated_at`, `search_stores_by_text`): WARN, should be remediated post-launch.
+- `public.spatial_ref_sys` RLS disabled: ERROR advisory but is the standard PostGIS system-table exception; not actionable for app-owned tables.
 
 ---
 
