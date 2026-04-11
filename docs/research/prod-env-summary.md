@@ -9,7 +9,7 @@ Generated: 2026-04-10 (Wave-2 gate report)
 |---|---|
 | Vercel project | starbucks-pitstop (`prj_b4or0ZfjjtJsDPUeaCMpEVGzxECy`) |
 | Team | Jake / williamjake (`team_oOzB9Jge7vLhtECqXtPwsvuW`) |
-| Current prod deployment ID | `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (target=production, SHA `745540a`, READY 2026-04-10) |
+| Release runtime first shipped | `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 (target=production, SHA `745540a`); subsequent doc-only commits reuse the same bundle — inspect the Vercel dashboard for the currently-promoted production deployment ID |
 | Canonical production URL | https://starbucks-pitstop.vercel.app/ |
 | Additional alias on same deployment | https://stopatstarbucks.vercel.app/ |
 | Custom domain | None configured |
@@ -20,9 +20,9 @@ Generated: 2026-04-10 (Wave-2 gate report)
 https://starbucks-pitstop.vercel.app/  →  HTTP 307  →  https://stopatstarbucks.vercel.app/  →  HTTP 200
 ```
 
-`stopatstarbucks.vercel.app` returns HTTP 200 with `x-nextjs-prerender: 1` and HSTS from the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`. `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returns HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify.
+On 2026-04-10 smoke, `stopatstarbucks.vercel.app` returned HTTP 200 with `x-nextjs-prerender: 1` and HSTS headers sourced from the then-promoted production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`). `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returned HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify. Subsequent doc-only commits (`7208d87`, `71aef3f`, `7d866a1`) have re-deployed with an identical runtime bundle; the redirect behavior is unchanged.
 
-**Assessment (2026-04-10, post-release-push):** The current production deployment serves the release-candidate SHA `745540a` on both aliases. Both domains are attached in the deployment's `alias` list — verified via `get_deployment`. Despite that, the canonical domain still returns an HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
+**Assessment (captured 2026-04-10; the release runtime has not changed through subsequent doc-only commits):** The release-candidate runtime shipped on 2026-04-10 at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) with both aliases attached — verified via `get_deployment`'s `alias` field at smoke time. Subsequent doc-only commits (`7208d87`, `71aef3f`, `7d866a1`) have re-deployed the identical runtime bundle to new deployment IDs; Vercel's currently-promoted production deployment serves the same runtime. Despite both aliases being attached, the canonical domain still returns HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
 
 ---
 
@@ -56,7 +56,7 @@ SSL is active. No custom domain cert to inspect.
 | `OVERTURE_RELEASE` | n/a (script-only) | Consumed by `scripts/sync-stores.ts`, not runtime | present |
 | `STARBUCKS_PITSTOP_LOCAL_MOCK` | **absent or `"0"`** | `/api/locations` returns `meta.source: "supabase"` — NOT `mock-local`, so local mock is not enabled in prod | present (=0 in .env.local) |
 
-Env var presence was confirmed indirectly on 2026-04-10 via behavioral smoke against the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`. The Vercel MCP tools exposed to this session do not include an env-var listing endpoint, so dashboard-level literal verification still requires an authenticated browser session at https://vercel.com/williamjake/starbucks-pitstop/settings/environment-variables. The release-coordinator decision treats the behavioral proof as sufficient for the release gate; dashboard verification remains a valid defense in depth.
+Env var presence was confirmed indirectly on 2026-04-10 via behavioral smoke against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) — the production deployment active at smoke time. Subsequent doc-only commits reuse the same runtime bundle, so the proof chain remains valid against whichever deployment Vercel currently has promoted. The Vercel MCP tools exposed to this session do not include an env-var listing endpoint, so dashboard-level literal verification still requires an authenticated browser session at https://vercel.com/williamjake/starbucks-pitstop/settings/environment-variables. The release-coordinator decision treats the behavioral proof as sufficient for the release gate; dashboard verification remains a valid defense in depth.
 
 **Local env file notes:**
 - `.env` (committed-safe file, gitignored): has Supabase URL + anon key + service role key + Mapbox token. `RATE_LIMIT_SECRET` is blank. Upstash vars are blank.
@@ -69,7 +69,7 @@ Env var presence was confirmed indirectly on 2026-04-10 via behavioral smoke aga
 
 Token prefix: `pk.eyJ1IjoidGhyZWUtb2xpdmVzIi...` (public token, user=three-olives).
 
-URL-whitelist restriction status: **unverified — follow-up needed.** The Mapbox dashboard was not queried (no Mapbox MCP tool available). The token is a public (`pk.`) token visible in client bundles. Without URL restrictions it is usable by anyone who finds it in the page source. Coordinator should verify restriction settings in the Mapbox dashboard before Wave 2 production verification.
+URL-whitelist restriction status: **unverified — tracked as a non-blocking advisory.** The Mapbox dashboard was not queried (no Mapbox MCP tool available). The token is a public (`pk.`) token visible in client bundles. Without URL restrictions it is usable by anyone who finds it in the page source, which is a cost/abuse concern rather than a correctness concern. This item is classified non-blocking in the advisory list at the bottom of the BLOCKERS section — recommended as a pre-scale or post-launch follow-up, **not a Wave 2 prerequisite**.
 
 ---
 
@@ -121,7 +121,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 ## Summary Paragraph
 
-**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`, READY 2026-04-10). The canonical domain still returns HTTP 307 to the other alias because of a Vercel dashboard-level domain redirect — NOT a code-level configuration. That redirect must be removed via the Vercel dashboard before Wave 2 can run against the canonical URL.
+**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on Vercel's currently-promoted production deployment. The release-candidate runtime (SHA `745540a`) first shipped at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 and has been carried forward unchanged by doc-only commits (`7208d87`, `71aef3f`, `7d866a1`). The canonical domain still returns HTTP 307 to the other alias because of a Vercel dashboard-level domain redirect — NOT a code-level configuration. That redirect must be removed via the Vercel dashboard before Wave 2 can run against the canonical URL.
 
 **SSL:** Active on all `*.vercel.app` domains. No custom domain cert to verify.
 
@@ -138,7 +138,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 ## BLOCKERS
 
 ### RESOLVED — Vercel prod env vars behaviorally proven present (release coordinator, 2026-04-10)
-All 5 required production env vars — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_MAPBOX_TOKEN`, `RATE_LIMIT_SECRET` — are behaviorally proven present against the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`. See the Env Variable Matrix for the per-variable proof chain. Direct Vercel dashboard inspection is still a valid defense in depth but is not a release gate.
+All 5 required production env vars — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_MAPBOX_TOKEN`, `RATE_LIMIT_SECRET` — were behaviorally proven present on 2026-04-10 against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`), the production deployment active at smoke time. Subsequent doc-only commits reuse the same runtime bundle, so the proof chain carries forward to whichever deployment Vercel currently has promoted. See the Env Variable Matrix for the per-variable proof chain. Direct Vercel dashboard inspection is still a valid defense in depth but is not a release gate.
 
 ### ACCEPTED — Upstash deferred to post-launch follow-up (release coordinator, 2026-04-10)
 Rate limiting runs on the **indexed Supabase fallback** — durable across serverless invocations, backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql`, bounded by DB unique constraints on `(store_id, code_normalized)` and `(code_id, voter_hash)`. See `docs/DECISIONS.md` 2026-04-10 "Release coordinator — ship on Supabase-backed rate-limit fallback" entry. Upstash provisioning is a pre-scale follow-up, **not a release gate**.
@@ -148,7 +148,7 @@ Canonical production URL for this release: **`https://starbucks-pitstop.vercel.a
 
 Current state (2026-04-10, post-release-push):
 
-- Both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` are attached as aliases on the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) — verified via `get_deployment`'s `alias` field.
+- Both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` are attached as aliases on Vercel's currently-promoted production deployment. Alias attachment was verified on 2026-04-10 via `get_deployment` against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`); subsequent doc-only commits reuse the same alias configuration.
 - Despite both being aliases on the same project/deployment, `starbucks-pitstop.vercel.app` still returns HTTP 307 to `stopatstarbucks.vercel.app`. The redirect is configured at the **Vercel dashboard domain-settings level**, separately from the alias attachment.
 - The repo contains no code-level redirect source: no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware redirect reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`.
 

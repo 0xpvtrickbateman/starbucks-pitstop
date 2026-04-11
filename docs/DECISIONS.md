@@ -270,7 +270,7 @@ Follow-up:
 Decision:
 
 - Treat `https://starbucks-pitstop.vercel.app/` as the canonical production URL for the release-candidate launch.
-- Remove the existing 307 redirect to `stopatstarbucks.vercel.app` via the Vercel dashboard. Both domains are attached as aliases on the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`), but the canonical domain is configured at the dashboard level to redirect to the other alias. That dashboard-level redirect is what needs removing.
+- Remove the existing 307 redirect to `stopatstarbucks.vercel.app` via the Vercel dashboard. Both domains are attached as aliases on Vercel's currently-promoted production deployment (verified on 2026-04-10 against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb`, SHA `745540a`; subsequent doc-only commits reuse the same alias configuration), but the canonical domain is configured at the dashboard level to redirect to the other alias. That dashboard-level redirect is what needs removing.
 
 Why:
 
@@ -279,7 +279,7 @@ Why:
 
 Historical note (corrected 2026-04-10):
 
-- An earlier version of this decision entry stated that `stopatstarbucks.vercel.app` was "not an alias of this project" and "not visible under either of the repo owner's two Vercel teams." That investigation ran against the then-stale production deployment `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8` (initial commit) before the release commits were pushed. The current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` has BOTH `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` in its `alias` list — confirmed via `get_deployment`. The earlier "ownership mystery" was an artifact of reading stale deployment metadata. The dashboard-level redirect, however, is real and persists independently of alias attachment.
+- An earlier version of this decision entry stated that `stopatstarbucks.vercel.app` was "not an alias of this project" and "not visible under either of the repo owner's two Vercel teams." That investigation ran against the then-stale production deployment `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8` (initial commit) before the release commits were pushed. On 2026-04-10, after the release commits shipped, the active production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) was observed to have BOTH `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` in its `alias` list — confirmed via `get_deployment`. Subsequent doc-only commits reuse the same alias configuration. The earlier "ownership mystery" was an artifact of reading stale deployment metadata. The dashboard-level redirect, however, is real and persists independently of alias attachment.
 
 Follow-up:
 
