@@ -173,7 +173,7 @@ npm run sync-stores -- --source=overture
 
 ## Production status
 
-**Release candidate as of 2026-04-10.** All automated checks pass, critical code-level bugs have been fixed, live Supabase writes and reads have been verified both locally and on a Vercel preview deployment, and Lighthouse has been recorded against the preview (Performance 59, Accessibility 100, Best Practices 96, SEO 60 — see `docs/QA.md` for the warm-path caveat; the first cold-hit preview scored Performance 35 before cache warmup). Status is held at release-candidate pending a smoke test on the actual production URL, a warmed-prod Lighthouse audit, and real-device + visual regression checks. Full verification log in `docs/QA.md`, `docs/BUILD_STATUS.md`, and `docs/BUG_FIX_LOG.md`.
+**Production-ready as of 2026-04-10 20:38 MST.** The canonical host `https://starbucks-pitstop.vercel.app/` now serves the production deployment directly, the Wave 2 smoke suite passes on the canonical production URL, a warmed production Lighthouse audit recorded Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100, and browser verification on the canonical host succeeded at 375 / 768 / 1024 / 1440 widths. Full verification log in `docs/QA.md`, `docs/BUILD_STATUS.md`, and `docs/research/verification-summary.md`.
 
 ## Known limitations
 

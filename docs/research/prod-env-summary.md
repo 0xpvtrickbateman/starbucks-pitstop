@@ -1,5 +1,5 @@
 # Production Environment Summary
-Generated: 2026-04-10 (Wave-2 gate report)
+Generated: 2026-04-10 20:38 MST (Wave-2 gate report; superseded by canonical-host verification)
 
 ---
 
@@ -13,16 +13,16 @@ Generated: 2026-04-10 (Wave-2 gate report)
 | Canonical production URL | https://starbucks-pitstop.vercel.app/ |
 | Additional alias on same deployment | https://stopatstarbucks.vercel.app/ |
 | Custom domain | None configured |
-| Vercel `live` flag | `false` as of pre-release-push snapshot; not re-queried after the release push |
+| Current production deployment (rechecked 2026-04-10 20:35 MST) | `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu` (target=production, Ready); both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` attached as aliases |
 
-**Redirect chain observed (curl):**
+**Current canonical-host response (curl, rechecked 2026-04-10 20:35 MST):**
 ```
-https://starbucks-pitstop.vercel.app/  →  HTTP 307  →  https://stopatstarbucks.vercel.app/  →  HTTP 200
+https://starbucks-pitstop.vercel.app/  →  HTTP 200
 ```
 
-On 2026-04-10 smoke, `stopatstarbucks.vercel.app` returned HTTP 200 with `x-nextjs-prerender: 1` and HSTS headers sourced from the then-promoted production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`). `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returned HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify. Subsequent doc-only commits have re-deployed the same runtime bundle to new deployment IDs without changing the redirect behavior.
+On 2026-04-10 smoke, `stopatstarbucks.vercel.app` returned HTTP 200 with `x-nextjs-prerender: 1` and HSTS headers sourced from the then-promoted production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`). At 20:28 MST, the canonical host still returned `307 -> stopatstarbucks.vercel.app`. The Vercel Domains configuration was then switched from `Redirect to Another Domain` to `Connect to an environment: Production`, and by 20:35 MST `curl -I https://starbucks-pitstop.vercel.app/` returned `HTTP/2 200` directly while both aliases still pointed at `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify.
 
-**Assessment (captured 2026-04-10; the release runtime has not changed through subsequent doc-only commits):** The release-candidate runtime shipped on 2026-04-10 at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) with both aliases attached — verified via `get_deployment`'s `alias` field at smoke time. Subsequent doc-only commits have re-deployed the identical runtime bundle to new deployment IDs; Vercel's currently-promoted production deployment serves the same runtime. Despite both aliases being attached, the canonical domain still returns HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
+**Assessment (rechecked 2026-04-10 20:35 MST):** The release-candidate runtime first shipped on 2026-04-10 at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) with both aliases attached. At verification time, the current production deployment was still `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`, and both aliases still resolved to it. The canonical dashboard redirect has been removed, so the canonical domain now serves the production deployment directly. This file is now historical context; the live release result is recorded in `docs/research/verification-summary.md`.
 
 ---
 
@@ -105,7 +105,7 @@ URL-whitelist restriction status: **unverified — tracked as a non-blocking adv
 | WARN | Functions `wilson_score`, `nearby_stores`, `set_updated_at`, `search_stores_by_text` have mutable `search_path` (SQL injection risk surface). |
 | WARN | PostGIS extension installed in `public` schema; should be moved to a separate schema. |
 
-**Critical implication:** RLS is on but no policies exist on `stores`, `codes`, `votes`. With Postgres deny-all semantics this means anonymous clients cannot read any of these tables directly — which is consistent with the app using server-side API routes and the service role key for writes. However, the views `public_store_read_model` and `public_code_read_model` with SECURITY DEFINER bypass RLS and could expose data. This should be reviewed before production launch.
+**Critical implication:** RLS is on but no policies exist on `stores`, `codes`, `votes`. With Postgres deny-all semantics this means anonymous clients cannot read any of these tables directly — which is consistent with the app using server-side API routes and the service role key for writes. However, the views `public_store_read_model` and `public_code_read_model` with SECURITY DEFINER bypass RLS and could expose data. This should be reviewed before any broader public launch or scale event, but it is not the remaining release gate for the current release.
 
 ---
 
@@ -121,7 +121,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 ## Summary Paragraph
 
-**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on Vercel's currently-promoted production deployment. The release-candidate runtime (SHA `745540a`) first shipped at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 and has been carried forward unchanged by subsequent doc-only commits. The canonical domain still returns HTTP 307 to the other alias because of a Vercel dashboard-level domain redirect — NOT a code-level configuration. That redirect must be removed via the Vercel dashboard before Wave 2 can run against the canonical URL.
+**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on Vercel's current production deployment (`dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`, rechecked 2026-04-10 20:35 MST). The release-candidate runtime (SHA `745540a`) first shipped at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 and has been carried forward unchanged by subsequent doc-only commits. The canonical domain now returns HTTP 200 directly after the dashboard redirect was removed, and Wave 2 verification completed successfully on the canonical URL.
 
 **SSL:** Active on all `*.vercel.app` domains. No custom domain cert to verify.
 
@@ -129,9 +129,9 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 **Rate limiting:** Active via the Supabase DB fallback path (`src/lib/rate-limit.ts:75-113`), verified by a `POST /api/votes` probe that reached the post-HMAC, post-rate-limit "Code not found" branch. Upstash is deferred to a post-scale follow-up per `docs/DECISIONS.md` 2026-04-10 entry — **not a release gate**.
 
-**Supabase:** Dedicated prod project (`ipjqdcuqykbrhsjwfjoh`) is ACTIVE_HEALTHY. RLS enabled on sensitive tables with no policies — the intentional server-mediated pattern (INFO advisory, not ERROR). Two SECURITY DEFINER views (`public_store_read_model`, `public_code_read_model`) bypass RLS and are a legitimate ERROR-level advisory worth reviewing before a public-facing launch.
+**Supabase:** Dedicated prod project (`ipjqdcuqykbrhsjwfjoh`) is ACTIVE_HEALTHY. RLS enabled on sensitive tables with no policies — the intentional server-mediated pattern (INFO advisory, not ERROR). Two SECURITY DEFINER views (`public_store_read_model`, `public_code_read_model`) bypass RLS and are a legitimate ERROR-level advisory worth reviewing before any broader public-scale launch, but they are not the remaining release gate for the current release.
 
-**Remaining release blocker:** Removing the Vercel dashboard-level redirect on `starbucks-pitstop.vercel.app` so Wave 2 can verify against the canonical URL. All other items are resolved or accepted as deferred follow-ups.
+**Remaining release blocker:** None. Canonical-host verification is complete; remaining items are deferred follow-ups and advisories.
 
 ---
 
@@ -143,18 +143,18 @@ All 5 required production env vars — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_
 ### ACCEPTED — Upstash deferred to post-launch follow-up (release coordinator, 2026-04-10)
 Rate limiting runs on the **indexed Supabase fallback** — durable across serverless invocations, backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql`, bounded by DB unique constraints on `(store_id, code_normalized)` and `(code_id, voter_hash)`. See `docs/DECISIONS.md` 2026-04-10 "Release coordinator — ship on Supabase-backed rate-limit fallback" entry. Upstash provisioning is a pre-scale follow-up, **not a release gate**.
 
-### OPEN — Canonical production URL dashboard redirect (release coordinator, 2026-04-10)
+### RESOLVED — Canonical production URL serves the deployment directly (release coordinator, 2026-04-10)
 Canonical production URL for this release: **`https://starbucks-pitstop.vercel.app/`**.
 
-Current state (2026-04-10, post-release-push):
+Current state (rechecked 2026-04-10 20:35 MST):
 
-- Both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` are attached as aliases on Vercel's currently-promoted production deployment. Alias attachment was verified on 2026-04-10 via `get_deployment` against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`); subsequent doc-only commits reuse the same alias configuration.
-- Despite both being aliases on the same project/deployment, `starbucks-pitstop.vercel.app` still returns HTTP 307 to `stopatstarbucks.vercel.app`. The redirect is configured at the **Vercel dashboard domain-settings level**, separately from the alias attachment.
-- The repo contains no code-level redirect source: no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware redirect reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`.
+- Both `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` are attached as aliases on the current production deployment `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu` (verified 2026-04-10 20:35 MST via `vercel inspect` and `vercel alias ls`). Alias attachment was first verified on 2026-04-10 via `get_deployment` against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`).
+- The `starbucks-pitstop.vercel.app` domain is now configured as `Connect to an environment: Production`; it no longer redirects to `stopatstarbucks.vercel.app`.
+- `curl -I https://starbucks-pitstop.vercel.app/` now returns `HTTP/2 200`, so Wave 2 can and did run against the canonical URL.
 
 **Historical note (superseded):** An earlier revision of this document stated that `stopatstarbucks.vercel.app` was "not in the project" and "not visible under either of Jake's Vercel teams." That investigation was performed against the then-stale production deployment `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8` (initial commit) before the release commits were pushed. With the current deployment's alias list, the earlier "mystery" is resolved: both domains belong to the same project. The dashboard-level redirect persists independently.
 
-**User action still required before Wave 2 against the canonical URL:** open https://vercel.com/williamjake/starbucks-pitstop/settings/domains and remove the `starbucks-pitstop.vercel.app → stopatstarbucks.vercel.app` redirect rule (or reconfigure it to "serve this deployment").
+**Completion note:** the dashboard redirect was removed on 2026-04-10, and the canonical-host release gate is now closed. See `docs/research/verification-summary.md` for the completed Wave 2 evidence.
 
 ### ADVISORY — SECURITY DEFINER read-model views bypass RLS (MEDIUM, not a release gate)
 Supabase security linter flags two views as ERROR-level `security_definer_view`:
@@ -162,7 +162,7 @@ Supabase security linter flags two views as ERROR-level `security_definer_view`:
 - `public.public_store_read_model`
 - `public.public_code_read_model`
 
-`SECURITY DEFINER` views enforce the creator's permissions rather than the querying user's, so they bypass RLS on the underlying tables. These views are the surface used by the API routes (`src/lib/store-data.ts`) to expose store and code data, and the intentional design is that each view projects only safe-to-expose columns. The recommended follow-up is to audit the view bodies' column projection and `WHERE` clauses, and to reclassify each view as `SECURITY INVOKER` if the RLS-bypass behavior is not load-bearing. Worth resolving before any public-facing scale event, but not a blocker for the release-candidate launch.
+`SECURITY DEFINER` views enforce the creator's permissions rather than the querying user's, so they bypass RLS on the underlying tables. These views are the surface used by the API routes (`src/lib/store-data.ts`) to expose store and code data, and the intentional design is that each view projects only safe-to-expose columns. The recommended follow-up is to audit the view bodies' column projection and `WHERE` clauses, and to reclassify each view as `SECURITY INVOKER` if the RLS-bypass behavior is not load-bearing. Worth resolving before any public-facing scale event, but not a blocker for the current release.
 
 **Clarification on the related RLS-no-policy advisory:** The Supabase linter also reports `rls_enabled_no_policy` on `public.stores`, `public.codes`, and `public.votes`, but that finding is **INFO**-level — see the severity table in section 5 above. It is the intentional server-mediated write pattern (anon clients get Postgres deny-all; all mutations go through server routes using the service-role key) and is NOT a release blocker. Earlier drafts of this document grouped it with the SECURITY DEFINER views under a single BLOCKER heading; that grouping was incorrect and has been split.
 
@@ -180,4 +180,6 @@ This file was created by the deployment-env-worker during Wave 1 on 2026-04-10. 
 
 The release coordinator has since revised the file to reflect the behavioral proof chain that emerged from Wave-2 prep smoke against the then-promoted production deployment, to date-anchor deployment references so they don't go stale on each doc-only redeploy, to split the RLS-no-policy INFO advisory away from the SECURITY DEFINER ERROR advisory, and to align the Mapbox URL-restriction priority with its non-blocking classification.
 
-This file will be superseded once Wave 2 verification runs against the canonical production URL and produces `docs/research/verification-summary.md`. For the full revision trail, see `git log docs/research/prod-env-summary.md`.
+On 2026-04-10 at 20:28 MST, the release coordinator rechecked the canonical host with `curl -I` plus Vercel CLI alias/deployment inspection, confirming that the redirect persisted while both aliases still pointed at `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`. On the same evening, the redirect was removed and the canonical host was re-verified at `HTTP/2 200`.
+
+This file is now superseded by `docs/research/verification-summary.md` for live release status. For the full revision trail, see `git log docs/research/prod-env-summary.md`.

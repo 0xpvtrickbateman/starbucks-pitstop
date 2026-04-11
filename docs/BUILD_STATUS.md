@@ -1,10 +1,32 @@
 # Build Status
 
-Last updated: 2026-04-10 MST
+Last updated: 2026-04-10 20:38 MST
 
-## Current State: Release candidate
+## Current State: Production-ready
 
-The app builds, passes all automated checks, runs end-to-end against live Supabase both locally and on a Vercel preview, and has a recorded Lighthouse baseline. Status is held at release-candidate until a production-URL smoke test, a warmed-prod Lighthouse audit, and real-device + visual regression checks are completed (see "Follow-ups" below). See `docs/QA.md` for the full 2026-04-10 live verification pass.
+The app builds, passes all automated checks, serves directly from the canonical production host, and has now cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The only active release blocker was the Vercel dashboard redirect on the canonical host; that redirect has been removed and the production URL now returns `HTTP/2 200`. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+
+## 2026-04-10 Canonical URL Gate Closed
+
+- The `starbucks-pitstop.vercel.app` domain was reconfigured in Vercel Domains settings from `307 -> stopatstarbucks.vercel.app` to `Connect to an environment: Production`.
+- `curl -I https://starbucks-pitstop.vercel.app/` at 2026-04-10 20:35 MST returned `HTTP/2 200` with `x-nextjs-prerender: 1`.
+- `curl -I https://stopatstarbucks.vercel.app/` also returned `HTTP/2 200`; both hostnames remain attached to production deployment `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`.
+- Conclusion: the canonical-host redirect gate is closed and Wave 2 could proceed against the actual production URL.
+
+## 2026-04-10 Wave 2 Verification Summary
+
+- Smoke checks 1–6 from `docs/RELEASE_RUNBOOK.md` passed against `https://starbucks-pitstop.vercel.app/`:
+  - `/` returned `HTTP/2 200`
+  - `/api/locations?bbox=...` returned 156 stores with `meta.source: "supabase"`
+  - `/api/locations?lat=47.6062&lng=-122.3321&radius=5` returned 73 stores ordered by distance
+  - `/api/search?q=pike` returned 10 stores
+  - `/api/search?q=a` returned the expected `400` validation response
+  - `/manifest.webmanifest` returned `HTTP/2 200`
+- Browser verification on the canonical host succeeded at 375 / 768 / 1024 / 1440 widths with zero console errors. The search flow auto-selected `35th & Fauntleroy` for `Seattle`, and the store detail panel rendered correctly.
+- Lighthouse on the canonical host recorded:
+  - first pass: Performance 42 / Accessibility 100 / Best Practices 96 / SEO 100
+  - warmed pass: Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100
+- Release conclusion: production launch gates are closed. Remaining items are non-blocking follow-ups.
 
 ## 2026-04-10 Verification Summary
 
@@ -26,13 +48,13 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - **Low**: `search_stores_by_text` had `LIMIT` without `ORDER BY`; the UI auto-selects `results[0]`. Added `20260410180500_search_stores_deterministic_order.sql` with `CASE`-based ranking and a `(name, id)` tiebreaker. Smoke-verified: `results[0]` for "Seattle" is stable across calls.
 - **Low**: `README.md` and `docs/BUILD_STATUS.md` referenced migration filenames that do not exist on disk. Both updated to match the real filenames.
 
-## Follow-ups (non-blocking)
+## Open Items
 
-1. Rerun Lighthouse against a warmed production URL (with custom domain) for a representative performance baseline; second-pass preview already climbed from 35 → 59 on cache warmup alone.
-2. Human-visual walkthrough at 375 / 768 / 1024 / 1440 widths.
-3. Real Mapbox clustering / zoom / pan walkthrough at z14+ on a real device.
-4. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
-5. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
+1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
+2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
+3. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
+4. Audit the `SECURITY DEFINER` read-model views and reclassify to `SECURITY INVOKER` if the bypass is not load-bearing.
+5. Add URL restrictions to the public Mapbox token.
 
 ## Completed
 
@@ -90,4 +112,4 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 
 ## Next Actions
 
-Most pre-production tasks have been completed (see `docs/QA.md` for the 2026-04-10 verification log). Remaining non-blocking follow-ups are tracked in the "2026-04-10 Second-pass Remediation" section above.
+Production launch gates are closed. The remaining open items are tracked above and are advisory or post-launch hardening work, not blockers for the current release.

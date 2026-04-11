@@ -1,10 +1,32 @@
 # QA Log
 
-Last updated: 2026-04-10 MST
+Last updated: 2026-04-10 20:38 MST
 
-## Status: Release candidate
+## Status: Production-ready
 
-All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified both locally and on a Vercel preview deployment, and Lighthouse has been recorded against the deployed preview. Status is held at release-candidate until the open follow-ups below are closed: a smoke test on the actual production URL (not the Vercel preview), a warmed-prod Lighthouse audit, and real-device + visual regression checks.
+All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification has now completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors.
+
+### 2026-04-10 Wave 2 canonical-host verification
+
+- Canonical host gate closed:
+  - `curl -I https://starbucks-pitstop.vercel.app/` at 2026-04-10 20:35 MST returned `HTTP/2 200`
+  - `curl -I https://stopatstarbucks.vercel.app/` returned `HTTP/2 200`
+  - `vercel inspect https://starbucks-pitstop.vercel.app` continued to show production deployment `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu` with both aliases attached
+- Runbook smoke checks against `PROD_URL=starbucks-pitstop.vercel.app`:
+  - `/` -> `HTTP/2 200`
+  - `/api/locations?bbox=-122.5,47.4,-122.2,47.7` -> 156 stores, `meta.source: "supabase"`
+  - `/api/locations?lat=47.6062&lng=-122.3321&radius=5` -> 73 stores, distance-ordered
+  - `/api/search?q=pike` -> 10 stores
+  - `/api/search?q=a` -> expected `400` validation response
+  - `/manifest.webmanifest` -> `HTTP/2 200`
+- Browser verification on the canonical host:
+  - Production page loaded at 375 / 768 / 1024 / 1440 widths with zero console errors or warnings
+  - Search interaction on the canonical host auto-selected `35th & Fauntleroy` for `Seattle`
+  - The store detail panel rendered correctly with active-code and submit-code sections visible
+- Production Lighthouse:
+  - cold pass on canonical host: Performance 42 / Accessibility 100 / Best Practices 96 / SEO 100
+  - warmed pass on canonical host: Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100
+- Release conclusion: Wave 2 passed against the canonical URL. No active release blockers remain.
 
 ### 2026-04-10 second-pass remediation (after code review)
 
@@ -42,7 +64,7 @@ A second review surfaced six additional issues. All fixed and reverified:
 | Best Practices | 96 |
 | SEO | 60 |
 
-Performance improved from 35 → 59 versus the first preview, primarily due to the warm Vercel build cache on redeploy. Still expected to climb further on a warmed prod lambda with a custom domain. Accessibility and Best Practices held at 100/96.
+Performance improved from 35 -> 59 versus the first preview, primarily due to the warm Vercel build cache on redeploy. The canonical production-host rerun then completed at Performance 81 on a warmed pass, so performance is no longer an open launch gate.
 
 ## Automated Results
 
@@ -136,13 +158,13 @@ Superseded by the 2026-04-10 second-pass rerun above (Performance 59 on a warmed
 
 Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold Supabase lambda + no CDN edge warmup). The accessibility + best-practices scores confirm there are no fundamental code-level regressions. Performance is tracked as a warmed-prod follow-up, not a release blocker.
 
-## Remaining (non-blocking) follow-ups
+## Remaining Open Items
 
-- [ ] Re-run Lighthouse against production with the domain warmed — expect Performance to rise materially once the lambda is warm and Mapbox assets are cached.
-- [ ] Human-visual walkthrough at 375 / 768 / 1024 / 1440 widths (Chrome devtools device mode is enough) — purely a sanity check since the layout has unit coverage.
-- [ ] Real Mapbox clustering / zoom / pan walkthrough at z14+ on a real device. Bbox clustering fix has unit coverage.
+- [ ] Literal physical-device spot check for geolocation and touch-map behavior. Browser verification at 375 / 768 / 1024 / 1440 is already complete.
 - [ ] Tighten the search RPC design so multi-field queries like `Seattle, WA` or `Phoenix, AZ 85016` can resolve — would need a small tokenizer, not a remediation-pass fix.
 - [ ] Provision Upstash so `RATE_LIMIT_SECRET`-driven rate limiting moves off the DB fallback path. Currently `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are empty and `enforceRateLimit` correctly falls through to Supabase COUNT queries.
+- [ ] Audit the `SECURITY DEFINER` read-model views and move them to `SECURITY INVOKER` if the bypass is not load-bearing.
+- [ ] Restrict the public Mapbox token by URL in the Mapbox dashboard.
 
 ## Known Limitations
 

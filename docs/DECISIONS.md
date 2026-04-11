@@ -281,9 +281,38 @@ Historical note (corrected 2026-04-10):
 
 - An earlier version of this decision entry stated that `stopatstarbucks.vercel.app` was "not an alias of this project" and "not visible under either of the repo owner's two Vercel teams." That investigation ran against the then-stale production deployment `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8` (initial commit) before the release commits were pushed. On 2026-04-10, after the release commits shipped, the active production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) was observed to have BOTH `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` in its `alias` list — confirmed via `get_deployment`. Subsequent doc-only commits reuse the same alias configuration. The earlier "ownership mystery" was an artifact of reading stale deployment metadata. The dashboard-level redirect, however, is real and persists independently of alias attachment.
 
+Recheck (2026-04-10 20:28 MST):
+
+- `curl -I https://starbucks-pitstop.vercel.app/` still returned `HTTP/2 307` with `location: https://stopatstarbucks.vercel.app/`, while `curl -I https://stopatstarbucks.vercel.app/` returned `HTTP/2 200`.
+- `vercel inspect https://starbucks-pitstop.vercel.app` and `vercel alias ls` both showed the current production deployment as `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`, with both `vercel.app` hostnames attached as aliases.
+- Conclusion unchanged: the redirect still lives in Vercel's domain settings, not in repo code or deployment alias state.
+
 Follow-up:
 
-- Remove the dashboard-level redirect via https://vercel.com/williamjake/starbucks-pitstop/settings/domains. Then `curl -sI https://starbucks-pitstop.vercel.app/` should return `HTTP/2 200` and Wave 2 can proceed.
+- Completed 2026-04-10 20:35 MST: the dashboard-level redirect was removed and `curl -sI https://starbucks-pitstop.vercel.app/` now returns `HTTP/2 200`. Wave 2 proceeded on the canonical host.
+
+## 2026-04-10: Release coordinator — Wave 2 passed on the canonical production URL
+
+Decision:
+
+- Mark the app production-ready for the current release after canonical-host verification completed on `https://starbucks-pitstop.vercel.app/`.
+
+Why:
+
+- The only active operational blocker was the Vercel dashboard redirect on the canonical host. That redirect was removed, and the canonical URL now serves the production deployment directly.
+- Runbook smoke checks 1–6 passed on the canonical host.
+- Browser verification succeeded on the canonical host at 375 / 768 / 1024 / 1440 widths with zero console errors, and the search/detail flow rendered correctly.
+- Lighthouse on the canonical host improved from 42 on the first pass to 81 on the warmed pass, with Accessibility 100 / Best Practices 96 / SEO 100 on both runs.
+
+Tradeoff:
+
+- A literal physical-device field check for geolocation/touch behavior is still worth doing, but the release gate is satisfied by the existing automated coverage plus live browser verification on the canonical host.
+- Security hardening follow-ups remain (`SECURITY DEFINER` read-model views, Mapbox URL restrictions, Upstash provisioning), but they are not launch blockers for the current release.
+
+Follow-up:
+
+- Record the canonical-host verification in `docs/research/verification-summary.md`, `docs/QA.md`, and `docs/BUILD_STATUS.md`.
+- Treat remaining hardening items as post-launch follow-ups, not launch gates.
 
 ## Pending
 
