@@ -124,7 +124,7 @@ export PROD_URL="starbucks-pitstop.vercel.app"
 |---|---|---|---|
 | 1 | Home page returns 200 | `curl -sI https://$PROD_URL/` | `HTTP/2 200` |
 | 2 | Locations — bbox query | `curl -s "https://$PROD_URL/api/locations?bbox=-122.5,47.4,-122.2,47.7"` | `200`, JSON body with `stores` array and `meta.source` = `"supabase"` |
-| 3 | Locations — radius query | `curl -s "https://$PROD_URL/api/locations?lat=47.6062&lng=-122.3321&radius=5000"` | `200`, JSON body with `stores` array |
+| 3 | Locations — radius query | `curl -s "https://$PROD_URL/api/locations?lat=47.6062&lng=-122.3321&radius=5"` | `200`, JSON body with `stores` array (radius is in miles; validator caps it at 100) |
 | 4 | Search | `curl -s "https://$PROD_URL/api/search?q=pike"` | `200`, JSON body with `stores` array |
 | 5 | Search — safety input | `curl -s "https://$PROD_URL/api/search?q=a"` | `400` (query too short — schema enforces ≥2 alnum chars) |
 | 6 | Manifest | `curl -sI "https://$PROD_URL/manifest.webmanifest"` | `200` |
@@ -171,7 +171,7 @@ These are live writes to the production database. Only run them if you have a te
 # POST /api/codes — submit a keypad code
 curl -s -X POST "https://$PROD_URL/api/codes" \
   -H "Content-Type: application/json" \
-  -d '{"storeId":"[TODO: real store ID]","code":"1234","deviceId":"smoke-test-device-id-001"}' | \
+  -d '{"storeId":"[TODO: real store ID]","code":"1234","deviceId":"00000000-0000-0000-0000-000000000001"}' | \
   python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
 # Expect: JSON with "codes" array (may include the submitted code)
 # Rate-limit hit (429) is acceptable if re-running; means the rate limit is working
@@ -179,7 +179,7 @@ curl -s -X POST "https://$PROD_URL/api/codes" \
 # POST /api/votes — vote on a code
 curl -s -X POST "https://$PROD_URL/api/votes" \
   -H "Content-Type: application/json" \
-  -d '{"codeId":"[TODO: real code UUID]","voteType":"up","deviceId":"smoke-test-device-id-002"}' | \
+  -d '{"codeId":"[TODO: real code UUID]","voteType":"up","deviceId":"00000000-0000-0000-0000-000000000002"}' | \
   python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
 # Expect: JSON with "codes" array
 # 404 is acceptable if the codeId doesn't exist

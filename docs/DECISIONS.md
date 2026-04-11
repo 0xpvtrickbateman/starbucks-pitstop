@@ -270,17 +270,20 @@ Follow-up:
 Decision:
 
 - Treat `https://starbucks-pitstop.vercel.app/` as the canonical production URL for the release-candidate launch.
-- Remove the existing 307 redirect to `stopatstarbucks.vercel.app` via the Vercel dashboard. It is not an alias of this project and is not visible under either of the repo owner's two Vercel teams.
+- Remove the existing 307 redirect to `stopatstarbucks.vercel.app` via the Vercel dashboard. Both domains are attached as aliases on the current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`), but the canonical domain is configured at the dashboard level to redirect to the other alias. That dashboard-level redirect is what needs removing.
 
 Why:
 
-- The redirect is not in the repo code — verified: no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware redirect reference, and `grep -r stopatstarbucks` returns zero hits outside `docs/research/prod-env-summary.md`. The redirect is a Vercel dashboard-level domain setting only.
-- Running Wave 2 verification against an unresolved redirect target introduces ambiguity about which project is actually being smoked.
-- `stopatstarbucks.vercel.app` is not in `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8`'s alias list and `get_deployment` returns 404 against both accessible Vercel teams (`williamjake`, `pvtrick_bateman`).
+- The redirect is not in the repo code — verified: no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware redirect reference, and `grep -r stopatstarbucks` returns zero hits in tracked source outside `docs/research/prod-env-summary.md` and this decisions log. The redirect is a Vercel dashboard-level domain setting only.
+- The Definition of Done in the release execution board explicitly requires Wave 2 to run against the canonical production URL. Running it against the redirect target instead would be technically equivalent (same deployment served from both aliases) but would leave the repo's own release criteria unmet.
+
+Historical note (corrected 2026-04-10):
+
+- An earlier version of this decision entry stated that `stopatstarbucks.vercel.app` was "not an alias of this project" and "not visible under either of the repo owner's two Vercel teams." That investigation ran against the then-stale production deployment `dpl_HR26YJGEBk3xGTpE6fJx9W36sFs8` (initial commit) before the release commits were pushed. The current production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` has BOTH `starbucks-pitstop.vercel.app` and `stopatstarbucks.vercel.app` in its `alias` list — confirmed via `get_deployment`. The earlier "ownership mystery" was an artifact of reading stale deployment metadata. The dashboard-level redirect, however, is real and persists independently of alias attachment.
 
 Follow-up:
 
-- If ownership of `stopatstarbucks.vercel.app` is later proven to be under the same project/team, it may be re-added as a deliberate alias.
+- Remove the dashboard-level redirect via https://vercel.com/williamjake/starbucks-pitstop/settings/domains. Then `curl -sI https://starbucks-pitstop.vercel.app/` should return `HTTP/2 200` and Wave 2 can proceed.
 
 ## Pending
 
