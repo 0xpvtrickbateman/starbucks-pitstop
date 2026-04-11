@@ -39,8 +39,8 @@ SSL is active. No custom domain cert to inspect.
 
 ## 3. Environment Variable Matrix
 
-> Cells show presence/absence only. No secret values are included.
-> Local: `.env` + `.env.local` (developer machine). Prod: inferred from Vercel build — no direct env-var API access available (Vercel CLI unauthenticated locally); presence inferred from build success and runtime behavior.
+> Cells show presence status. No secret values are included.
+> Local columns reflect `.env` + `.env.local` on the developer machine. Prod presence is proven behaviorally via the Wave-2 prep smoke on 2026-04-10 — see the per-variable Proof column. The Vercel MCP tools exposed to this session do not include an env-var listing endpoint, so dashboard-level literal verification is a separate defense-in-depth step, not a release gate.
 > "build-only" = NEXT_PUBLIC_ vars baked at build time.
 
 | Variable | prod (Vercel) | Proof of presence (2026-04-10) | dev/local |
@@ -111,9 +111,7 @@ URL-whitelist restriction status: **unverified — follow-up needed.** The Mapbo
 
 ## 6. Upstash Status
 
-**ABSENT locally.** Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are blank in all local env files (`.env` and `.env.local`).
-
-Vercel prod/preview env var presence: **unverified** (no direct API access — see section 3).
+**Absent by design.** Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are blank in all local env files (`.env` and `.env.local`) and are classified as "absent (accepted)" in the prod column of the Env Variable Matrix (section 3) per the release-coordinator decision.
 
 The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When Upstash env vars are absent, `getRatelimit()` returns null (`src/lib/rate-limit.ts:29-30`) and `enforceRateLimit()` falls through to a **Supabase `COUNT(*)`-based rate limiter** (`src/lib/rate-limit.ts:75-113`). It queries `codes` / `votes` filtered by `(hashed_identity, created_at >= window_start)` and enforces `count < limit`. The fallback is backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql` — `EXPLAIN` confirms `Index Only Scan` on both tables. Rate limiting is therefore **active on the DB fallback when Upstash is absent — it is not inactive.**
 
