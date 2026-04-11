@@ -20,9 +20,9 @@ Generated: 2026-04-10 (Wave-2 gate report)
 https://starbucks-pitstop.vercel.app/  →  HTTP 307  →  https://stopatstarbucks.vercel.app/  →  HTTP 200
 ```
 
-On 2026-04-10 smoke, `stopatstarbucks.vercel.app` returned HTTP 200 with `x-nextjs-prerender: 1` and HSTS headers sourced from the then-promoted production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`). `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returned HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify. Subsequent doc-only commits (`7208d87`, `71aef3f`, `7d866a1`) have re-deployed with an identical runtime bundle; the redirect behavior is unchanged.
+On 2026-04-10 smoke, `stopatstarbucks.vercel.app` returned HTTP 200 with `x-nextjs-prerender: 1` and HSTS headers sourced from the then-promoted production deployment `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`). `starbucks-pitstop.vercel.app` — despite also being attached as an alias on the same deployment — returned HTTP 307 to `stopatstarbucks.vercel.app` because of a Vercel dashboard-level domain redirect that intercepts before the alias reaches the deployment. HTTPS is active via Vercel's shared TLS on both hostnames. No custom domain, so no separate cert to verify. Subsequent doc-only commits have re-deployed the same runtime bundle to new deployment IDs without changing the redirect behavior.
 
-**Assessment (captured 2026-04-10; the release runtime has not changed through subsequent doc-only commits):** The release-candidate runtime shipped on 2026-04-10 at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) with both aliases attached — verified via `get_deployment`'s `alias` field at smoke time. Subsequent doc-only commits (`7208d87`, `71aef3f`, `7d866a1`) have re-deployed the identical runtime bundle to new deployment IDs; Vercel's currently-promoted production deployment serves the same runtime. Despite both aliases being attached, the canonical domain still returns HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
+**Assessment (captured 2026-04-10; the release runtime has not changed through subsequent doc-only commits):** The release-candidate runtime shipped on 2026-04-10 at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`) with both aliases attached — verified via `get_deployment`'s `alias` field at smoke time. Subsequent doc-only commits have re-deployed the identical runtime bundle to new deployment IDs; Vercel's currently-promoted production deployment serves the same runtime. Despite both aliases being attached, the canonical domain still returns HTTP 307 to the other alias; the redirect is a **Vercel dashboard-level domain setting** that is NOT in repo code (no `vercel.json`, no `redirects()` in `next.config.ts`, no middleware reference, and `grep -r stopatstarbucks` in tracked source returns only this document and `docs/DECISIONS.md`). Removing the redirect requires authenticated dashboard access via https://vercel.com/williamjake/starbucks-pitstop/settings/domains.
 
 ---
 
@@ -121,7 +121,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 ## Summary Paragraph
 
-**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on Vercel's currently-promoted production deployment. The release-candidate runtime (SHA `745540a`) first shipped at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 and has been carried forward unchanged by doc-only commits (`7208d87`, `71aef3f`, `7d866a1`). The canonical domain still returns HTTP 307 to the other alias because of a Vercel dashboard-level domain redirect — NOT a code-level configuration. That redirect must be removed via the Vercel dashboard before Wave 2 can run against the canonical URL.
+**Production URL:** Canonical is https://starbucks-pitstop.vercel.app/. Both it and https://stopatstarbucks.vercel.app/ are attached as aliases on Vercel's currently-promoted production deployment. The release-candidate runtime (SHA `745540a`) first shipped at `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` on 2026-04-10 and has been carried forward unchanged by subsequent doc-only commits. The canonical domain still returns HTTP 307 to the other alias because of a Vercel dashboard-level domain redirect — NOT a code-level configuration. That redirect must be removed via the Vercel dashboard before Wave 2 can run against the canonical URL.
 
 **SSL:** Active on all `*.vercel.app` domains. No custom domain cert to verify.
 
@@ -174,9 +174,10 @@ Supabase security linter flags two views as ERROR-level `security_definer_view`:
 
 ---
 
-## Cross-Ownership Requests
+## Revision History
 
-None required from this agent's work. All findings are read-only observations.
+This file was created by the deployment-env-worker during Wave 1 on 2026-04-10. The initial draft classified all 5 required production env vars as "unverified" and grouped `rls_enabled_no_policy` on `stores`/`codes`/`votes` with the SECURITY DEFINER views under a single ERROR-level BLOCKER heading. Neither of those classifications survived review.
 
-Files touched by this agent: `docs/research/prod-env-summary.md` (created, new file).
-No changes made to `next.config.ts`, `package.json`, or `supabase/config.toml` — no deployment-config changes were warranted based on findings.
+The release coordinator has since revised the file to reflect the behavioral proof chain that emerged from Wave-2 prep smoke against the then-promoted production deployment, to date-anchor deployment references so they don't go stale on each doc-only redeploy, to split the RLS-no-policy INFO advisory away from the SECURITY DEFINER ERROR advisory, and to align the Mapbox URL-restriction priority with its non-blocking classification.
+
+This file will be superseded once Wave 2 verification runs against the canonical production URL and produces `docs/research/verification-summary.md`. For the full revision trail, see `git log docs/research/prod-env-summary.md`.
