@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { isLocalMockBackendEnabled } from "@/lib/config";
+import { fetchMockStoreById } from "@/lib/mock-backend";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchStoreById } from "@/lib/store-data";
 import { CodeDisplay } from "@/components/store/CodeDisplay";
 
 async function loadStore(id: string) {
+  if (isLocalMockBackendEnabled()) {
+    return fetchMockStoreById(id);
+  }
+
   const supabase = createServiceRoleClient();
   return fetchStoreById(supabase, id);
 }
