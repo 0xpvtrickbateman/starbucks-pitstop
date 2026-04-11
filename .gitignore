@@ -43,3 +43,13 @@ next-env.d.ts
 # playwright
 .playwright-mcp/
 /test-results/
+
+# local scraper artifacts (not for commit — see AGENTS.md data provenance rules)
+/starbucks_scraper.py
+/starbucks_checkpoint.json
+/starbucks_us_stores.csv
+/starbucks_us_stores.json
+
+# local lighthouse preview runs (production reports are committed separately)
+/docs/research/lighthouse-preview.report.html
+/docs/research/lighthouse-preview.report.json

@@ -33,7 +33,7 @@ export function LogoMark({
         fill
         priority={priority}
         sizes={`${pixelSize}px`}
-        className="object-cover"
+        className="object-contain"
       />
     </div>
   );

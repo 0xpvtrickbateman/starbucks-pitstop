@@ -17,8 +17,8 @@ export function Navbar({ className }: NavbarProps) {
       )}
     >
       <div className="glass-panel mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4 px-[var(--space-page)] py-3">
-        <div className="flex items-center gap-3">
-          <LogoMark size={48} priority />
+        <div className="flex items-center gap-4">
+          <LogoMark size={56} priority />
           <div className="min-w-0">
             <p className="font-functional text-[0.68rem] leading-none tracking-[0.28em] text-brand-primary-dark/70">
               Starbucks Pitstop
