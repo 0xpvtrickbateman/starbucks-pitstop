@@ -164,7 +164,7 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 - [ ] Tighten the search RPC design so multi-field queries like `Seattle, WA` or `Phoenix, AZ 85016` can resolve — would need a small tokenizer, not a remediation-pass fix.
 - [ ] Provision Upstash so `RATE_LIMIT_SECRET`-driven rate limiting moves off the DB fallback path. Currently `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are empty and `enforceRateLimit` correctly falls through to Supabase COUNT queries.
 - [ ] Audit the `SECURITY DEFINER` read-model views and move them to `SECURITY INVOKER` if the bypass is not load-bearing.
-- [ ] Restrict the public Mapbox token by URL in the Mapbox dashboard.
+- [x] Restrict the public Mapbox token by URL in the Mapbox dashboard. Done 2026-04-12T01:03:29Z UTC via the Mapbox Tokens API on token `cmnr5hlhd00jh2vpoopc6k7t5` (account `three-olives`). Verified with seven `curl` probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`: allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, an explicitly-listed `…-q4px1h5ab-williamjake.vercel.app`) all returned `200`; `example.com`, an unlisted preview-style host, and a request with **no Referer header at all** all returned `403 FORBIDDEN`. The token is now functionally browser-only — Mapbox rejects Referer-less requests once URL restrictions are active. No wildcard for preview deployments: each new preview URL must be appended explicitly. See `docs/BUILD_STATUS.md` 2026-04-11 entry.
 
 ## Known Limitations
 

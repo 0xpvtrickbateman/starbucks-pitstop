@@ -1,6 +1,6 @@
 # Decisions Log
 
-Last updated: 2026-04-10 MST
+Last updated: 2026-04-11 MST
 
 ## 2026-04-08: Use the official Starbucks locator as the primary ingestion source
 
@@ -313,6 +313,30 @@ Follow-up:
 
 - Record the canonical-host verification in `docs/research/verification-summary.md`, `docs/QA.md`, and `docs/BUILD_STATUS.md`.
 - Treat remaining hardening items as post-launch follow-ups, not launch gates.
+
+## 2026-04-11: Mapbox public token URL allowlist is explicit, not wildcarded
+
+Decision:
+
+- Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` (Mapbox token id `cmnr5hlhd00jh2vpoopc6k7t5`, account `three-olives`) to an **explicit, enumerated** list of origins via the Mapbox Tokens API rather than a wildcard like `https://starbucks-pitstop-*-williamjake.vercel.app/*`.
+- The allowlist is the two canonical hosts (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`), every existing numbered Vercel deployment URL under `starbucks-pitstop-<hash>-williamjake.vercel.app`, and `http://localhost:3000` for dev.
+
+Why:
+
+- Mapbox URL restrictions, as exercised against the live API, do not honor a `*` subdomain wildcard the way the original plan assumed; the working configuration is a literal list. Confirmed empirically by Probe 5 (an unlisted `*-williamjake.vercel.app` host got `403`).
+- An explicit allowlist is also a stricter abuse model: a leaked token cannot be used from a freshly-spun preview URL on the same Vercel team without being added.
+- `127.0.0.1` was deliberately omitted because Mapbox URL restrictions reject IP literals; `http://localhost:3000` covers the dev case (and matches what `next dev` actually serves on, even though `next.config.ts:5` lists `127.0.0.1` in `allowedDevOrigins`).
+- Including `localhost` (rather than restricting to production hosts only) was chosen so that local dev keeps working without juggling a second token. The cost is negligible because `localhost` Referers can only originate from a developer's own machine.
+
+Tradeoff:
+
+- New preview deployments will return `403` from Mapbox until their URL is appended manually. Acceptable today because preview-deploy churn is low; if it becomes painful, the next move is either a CI step that PATCHes the allowlist on every `vercel deploy`, or a separate preview-only token with its own scopes.
+- The token is now functionally browser-only: Probe 3 showed Mapbox returns `403` for requests with no `Referer` header once URL restrictions are active. Any future server-side caller of this same token would need its own unrestricted token. This is fine — the token has only ever been used from `"use client"` components (`src/components/home/PitstopShell.tsx:191`, `src/components/map/StoreMap.tsx:230`).
+
+Evidence:
+
+- Verification probes and exact HTTP results recorded in `docs/QA.md` (Remaining Open Items, Mapbox bullet) and `docs/BUILD_STATUS.md` (2026-04-11 entry).
+- Restriction `modified` timestamp returned by the Mapbox Tokens API: `2026-04-12T01:03:29.333Z`.
 
 ## Pending
 

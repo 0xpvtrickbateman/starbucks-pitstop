@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-10 20:38 MST
+Last updated: 2026-04-11 18:05 MST
 
 ## Current State: Production-ready
 
@@ -48,13 +48,26 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - **Low**: `search_stores_by_text` had `LIMIT` without `ORDER BY`; the UI auto-selects `results[0]`. Added `20260410180500_search_stores_deterministic_order.sql` with `CASE`-based ranking and a `(name, id)` tiebreaker. Smoke-verified: `results[0]` for "Seattle" is stable across calls.
 - **Low**: `README.md` and `docs/BUILD_STATUS.md` referenced migration filenames that do not exist on disk. Both updated to match the real filenames.
 
+## 2026-04-11 Mapbox public token URL-restricted
+
+- The public token `NEXT_PUBLIC_MAPBOX_TOKEN` (id `cmnr5hlhd00jh2vpoopc6k7t5`, account `three-olives`) was restricted via the Mapbox Tokens API at 2026-04-12T01:03:29.333Z UTC. Allowed origins: `starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, every existing `starbucks-pitstop-<hash>-williamjake.vercel.app` deployment URL, and `http://localhost:3000`. `127.0.0.1` was not added because Mapbox URL restrictions do not accept IP literals.
+- No application code change. `src/components/home/PitstopShell.tsx` and `src/components/map/StoreMap.tsx` already read the token from `process.env.NEXT_PUBLIC_MAPBOX_TOKEN`; the restriction is enforced server-side by Mapbox.
+- Verified live with seven curl probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`:
+  - Allowed Referer `https://starbucks-pitstop.vercel.app/` → `200`
+  - Allowed Referer `https://stopatstarbucks.vercel.app/` → `200`
+  - Allowed Referer `http://localhost:3000/` → `200`
+  - Allowed Referer for an explicitly-listed deployment host (`...-q4px1h5ab-...`) → `200`
+  - Disallowed Referer `https://example.com/` → `403 FORBIDDEN`
+  - Disallowed unlisted preview-style Referer (`https://some-other-app-abc123-williamjake.vercel.app/`) → `403 FORBIDDEN`
+  - **No Referer header at all** → `403 FORBIDDEN`. Mapbox blocks Referer-less requests when URL restrictions are active, so the token is now functionally browser-only.
+- Operational note: there is no wildcard. Future preview deployments will return `403` until their URL is appended to the allowlist. If preview-deploy churn becomes painful, switch strategies (e.g., preview-only secondary token, or a tokens-write CI step that appends each new deployment URL on `vercel deploy`).
+
 ## Open Items
 
 1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
 2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
 3. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
 4. Audit the `SECURITY DEFINER` read-model views and reclassify to `SECURITY INVOKER` if the bypass is not load-bearing.
-5. Add URL restrictions to the public Mapbox token.
 
 ## Completed
 
