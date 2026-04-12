@@ -365,6 +365,28 @@ Verification:
 - The temporary production verification artifact was cleaned up immediately afterward by deleting the vote row first and then the submitted code row (`3a6c7420-de20-4aba-986d-1f3ae4a7cf14`), leaving no test data in prod.
 - A follow-up `supabase db lint --linked` attempt hit `cli_login_postgres` auth failure, so the closeout is based on successful runtime verification rather than advisor CLI output.
 
+## 2026-04-12: Release coordinator — close Item A on live rate-limit proof
+
+Decision:
+
+- Close the execution-board Item A blocker based on exact production behavior: four sequential `POST /api/codes` requests from the same synthetic UUID device identity returned `200`, `200`, `200`, `429` on the canonical production host.
+
+Why:
+
+- The proof was run against live production on `https://starbucks-pitstop.vercel.app/`, not against a local or preview environment.
+- A real non-`17844` production store was used (`11917`, `3rd & Madison`) to avoid any residual association with the earlier migration-verification artifact.
+- The fourth request returned the expected `429` body: `"Submission rate limit exceeded. Please wait before posting again."`
+- The three temporary code rows created during the proof were deleted immediately afterward, leaving no production residue.
+
+Tradeoff:
+
+- This session did not have Upstash REST credentials or dashboard access, so the closeout is based on exact runtime behavior rather than direct Redis keyspace inspection.
+- Local `.env` / `.env.local` still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local development remains on the indexed DB fallback path unless those env vars are added for parity.
+
+Follow-up:
+
+- Treat production rate-limit enforcement as verified and move the remaining rate-limit work to local dev parity only.
+
 ## Pending
 
 - exact sync tiling implementation

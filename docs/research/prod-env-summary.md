@@ -50,8 +50,8 @@ SSL is active. No custom domain cert to inspect.
 | `SUPABASE_SERVICE_ROLE_KEY` | **present** | `/api/locations` uses `createServiceRoleClient()` → only reachable if the service-role key is set | present (`.env.local` only) |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | **present** | Token literal `pk.eyJ1IjoidGhyZWUtb2xpdmVzIi...` extracted from `/_next/static/chunks/*.js` via grep of the deployed bundle | present |
 | `RATE_LIMIT_SECRET` | **present** | `POST /api/votes` with all-zero UUIDs returned `404 "Code not found"` — only reachable through a successful `hashDeviceId()` HMAC call in `src/lib/crypto.ts`, which requires the secret | present (.env.local), absent (.env) |
-| `UPSTASH_REDIS_REST_URL` | **absent (accepted)** | DB fallback path verified active — see Upstash section below | **absent** (blank in both .env files) |
-| `UPSTASH_REDIS_REST_TOKEN` | **absent (accepted)** | Same | **absent** (blank in both .env files) |
+| `UPSTASH_REDIS_REST_URL` | **unverified (production enforcement observed)** | Four sequential `POST /api/codes` requests on 2026-04-12 returned `200`, `200`, `200`, `429`; this session had no direct env listing or Redis key access, so the exact backend remains behaviorally verified rather than config-verified | **absent** (blank in both .env files) |
+| `UPSTASH_REDIS_REST_TOKEN` | **unverified (production enforcement observed)** | Same | **absent** (blank in both .env files) |
 | `NEXT_PUBLIC_SITE_URL` | unverified | Not exercised by any API smoke; runtime-optional | present (localhost value) |
 | `OVERTURE_RELEASE` | n/a (script-only) | Consumed by `scripts/sync-stores.ts`, not runtime | present |
 | `STARBUCKS_PITSTOP_LOCAL_MOCK` | **absent or `"0"`** | `/api/locations` returns `meta.source: "supabase"` — NOT `mock-local`, so local mock is not enabled in prod | present (=0 in .env.local) |
@@ -117,11 +117,11 @@ Operational note: Mapbox URL restrictions are literal, not wildcarded. Each new 
 
 ## 6. Upstash Status
 
-**Absent by design.** Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are blank in all local env files (`.env` and `.env.local`) and are classified as "absent (accepted)" in the prod column of the Env Variable Matrix (section 3) per the release-coordinator decision.
+**Production rate limiting is behaviorally verified; local env parity is still absent.** Both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` remain blank in the local env files (`.env` and `.env.local`), so local dev still exercises the DB fallback path. On 2026-04-12, however, four sequential `POST /api/codes` requests against the canonical production host using the same synthetic UUID device identity returned `200`, `200`, `200`, `429`, which confirms that production enforces the expected 3-per-hour submission threshold.
 
-The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When Upstash env vars are absent, `getRatelimit()` returns null (`src/lib/rate-limit.ts:29-30`) and `enforceRateLimit()` falls through to a **Supabase `COUNT(*)`-based rate limiter** (`src/lib/rate-limit.ts:75-113`). It queries `codes` / `votes` filtered by `(hashed_identity, created_at >= window_start)` and enforces `count < limit`. The fallback is backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql` — `EXPLAIN` confirms `Index Only Scan` on both tables. Rate limiting is therefore **active on the DB fallback when Upstash is absent — it is not inactive.**
+The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When Upstash env vars are absent, `getRatelimit()` returns null (`src/lib/rate-limit.ts:29-30`) and `enforceRateLimit()` falls through to a **Supabase `COUNT(*)`-based rate limiter** (`src/lib/rate-limit.ts:75-113`). It queries `codes` / `votes` filtered by `(hashed_identity, created_at >= window_start)` and enforces `count < limit`. The fallback is backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql` — `EXPLAIN` confirms `Index Only Scan` on both tables. From this session, the exact production backend branch could not be distinguished because no Upstash REST credentials or dashboard access were available. The closeout therefore records the exact production behavior (`200`, `200`, `200`, `429`) rather than a Redis keyspace capture.
 
-**Coordinator decision (2026-04-10):** Ship on the DB fallback; treat Upstash provisioning as a pre-scale follow-up, not a release gate. See `docs/DECISIONS.md` 2026-04-10 "Release coordinator — ship on Supabase-backed rate-limit fallback" entry.
+**Coordinator decision trail:** The 2026-04-10 release decision shipped on the DB fallback as an acceptable stopgap. On 2026-04-12, Item A was closed on exact production behavior proving the 3-per-hour limiter is enforced on the canonical host. See `docs/DECISIONS.md` 2026-04-10 "ship on Supabase-backed rate-limit fallback" and 2026-04-12 "close Item A on live rate-limit proof" entries.
 
 ---
 
@@ -133,7 +133,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 **Env parity:** All 5 required production env vars behaviorally proven present on 2026-04-10 via Wave-2 prep smoke against the live deployment — see the Env Variable Matrix above for the per-variable proof chain. Direct Vercel dashboard verification is still a valid defense in depth but is not a release gate per the release-coordinator decision.
 
-**Rate limiting:** Active via the Supabase DB fallback path (`src/lib/rate-limit.ts:75-113`), verified by a `POST /api/votes` probe that reached the post-HMAC, post-rate-limit "Code not found" branch. Upstash is deferred to a post-scale follow-up per `docs/DECISIONS.md` 2026-04-10 entry — **not a release gate**.
+**Rate limiting:** Production enforcement is verified. On 2026-04-12, four sequential `POST /api/codes` requests from the same synthetic UUID device identity returned `200`, `200`, `200`, `429` on the canonical host. From this session, the exact backend branch could not be distinguished because there was no direct Upstash env listing or Redis key access. Local dev still falls back to the indexed DB path until `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are added locally.
 
 **Supabase:** Dedicated prod project (`ipjqdcuqykbrhsjwfjoh`) is ACTIVE_HEALTHY. RLS enabled on sensitive tables with no policies — the intentional server-mediated pattern (INFO advisory, not ERROR). On 2026-04-12, `public_store_read_model` and `public_code_read_model` were switched to `security_invoker = true`, the write RPCs were moved to `SECURITY INVOKER`, and the flagged utility functions had `search_path = public, pg_temp` pinned. Runtime verification passed after apply; the follow-up advisor CLI recheck was blocked by `cli_login_postgres` auth.
 
@@ -146,8 +146,8 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 ### RESOLVED — Vercel prod env vars behaviorally proven present (release coordinator, 2026-04-10)
 All 5 required production env vars — `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_MAPBOX_TOKEN`, `RATE_LIMIT_SECRET` — were behaviorally proven present on 2026-04-10 against `dpl_CUAAWd8mruTFE8bqwBnzWnCistNb` (SHA `745540a`), the production deployment active at smoke time. Subsequent doc-only commits reuse the same runtime bundle, so the proof chain carries forward to whichever deployment Vercel currently has promoted. See the Env Variable Matrix for the per-variable proof chain. Direct Vercel dashboard inspection is still a valid defense in depth but is not a release gate.
 
-### ACCEPTED — Upstash deferred to post-launch follow-up (release coordinator, 2026-04-10)
-Rate limiting runs on the **indexed Supabase fallback** — durable across serverless invocations, backed by composite indexes via migration `20260410180000_rate_limit_fallback_indexes.sql`, bounded by DB unique constraints on `(store_id, code_normalized)` and `(code_id, voter_hash)`. See `docs/DECISIONS.md` 2026-04-10 "Release coordinator — ship on Supabase-backed rate-limit fallback" entry. Upstash provisioning is a pre-scale follow-up, **not a release gate**.
+### RESOLVED — Production rate-limit enforcement verified (release coordinator, 2026-04-12)
+Four sequential `POST /api/codes` requests on the canonical production host returned `200`, `200`, `200`, `429` when sent from the same synthetic UUID device identity. That closes the operational Item A blocker: production is enforcing the expected 3-per-hour code-submission limit. This session did not have Upstash REST credentials or dashboard access, so the proof is exact runtime behavior rather than direct Redis key inspection. Local `.env` / `.env.local` still omit the Upstash vars, so local dev remains on the indexed DB fallback path until those env vars are added for parity.
 
 ### RESOLVED — Canonical production URL serves the deployment directly (release coordinator, 2026-04-10)
 Canonical production URL for this release: **`https://starbucks-pitstop.vercel.app/`**.

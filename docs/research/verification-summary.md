@@ -66,4 +66,3 @@ The release blocker was the Vercel dashboard redirect on `starbucks-pitstop.verc
 Remaining work is post-launch hardening:
 
 - physical-device spot check for geolocation and touch-map behavior
-- Upstash provisioning

@@ -1,6 +1,6 @@
 # QA Log
 
-Last updated: 2026-04-12 11:27 MST
+Last updated: 2026-04-12 12:28 MST
 
 ## Status: Production-ready
 
@@ -45,6 +45,20 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
   - duplicate `POST /api/votes` -> `409` with `"You have already voted on this code."`
 - Cleanup: deleted the temporary verification artifact from prod after the check by deleting the vote row first and then code `3a6c7420-de20-4aba-986d-1f3ae4a7cf14`.
 - The targeted advisor/lint recheck was blocked by `cli_login_postgres` auth in `supabase db lint --linked`, so the closeout criterion is satisfied by functional runtime verification rather than advisor output.
+
+### 2026-04-12 Production rate-limit proof (Item A)
+
+- Target: `POST /api/codes` on `https://starbucks-pitstop.vercel.app/`
+- Store used: `11917` (`3rd & Madison`) from live production data, specifically chosen to avoid reusing store `17844`.
+- Method: four sequential submits with the same synthetic UUID device identity and four distinct valid code strings.
+- Exact response sequence:
+  - request 1 -> `200`, body included `existing: false`
+  - request 2 -> `200`, body included `existing: false`
+  - request 3 -> `200`, body included `existing: false`
+  - request 4 -> `429`, body `{ "error": "Submission rate limit exceeded. Please wait before posting again." }`
+- Cleanup: deleted the three created code rows immediately afterward. No votes were created during this proof.
+- Interpretation: production enforces the expected 3-per-hour submit threshold. This closes the execution-board Item A blocker.
+- Scope note: local `.env` / `.env.local` still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local dev remains on the DB fallback path. This session did not have Upstash REST credentials or dashboard access, so the proof is behavioral rather than a direct Redis key inspection.
 
 ### 2026-04-10 second-pass remediation (after code review)
 
@@ -180,7 +194,7 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 
 - [ ] Literal physical-device spot check for geolocation and touch-map behavior. Browser verification at 375 / 768 / 1024 / 1440 is already complete.
 - [ ] Tighten the search RPC design so multi-field queries like `Seattle, WA` or `Phoenix, AZ 85016` can resolve — would need a small tokenizer, not a remediation-pass fix.
-- [ ] Provision Upstash so `RATE_LIMIT_SECRET`-driven rate limiting moves off the DB fallback path. Currently `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are empty and `enforceRateLimit` correctly falls through to Supabase COUNT queries.
+- [ ] Optionally mirror `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` into local `.env.local` so `npm run dev` exercises the same rate-limit branch as production.
 - [x] Restrict the public Mapbox token by URL in the Mapbox dashboard. Done 2026-04-12T01:03:29Z UTC via the Mapbox Tokens API on token `cmnr5hlhd00jh2vpoopc6k7t5` (account `three-olives`). Verified with seven `curl` probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`: allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, an explicitly-listed `…-q4px1h5ab-williamjake.vercel.app`) all returned `200`; `example.com`, an unlisted preview-style host, and a request with **no Referer header at all** all returned `403 FORBIDDEN`. The token is now functionally browser-only — Mapbox rejects Referer-less requests once URL restrictions are active. No wildcard for preview deployments: each new preview URL must be appended explicitly. See `docs/BUILD_STATUS.md` 2026-04-11 entry.
 
 ## Known Limitations

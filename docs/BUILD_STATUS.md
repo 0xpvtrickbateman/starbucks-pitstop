@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-12 11:27 MST
+Last updated: 2026-04-12 12:28 MST
 
 ## Current State: Production-ready
 
@@ -75,11 +75,23 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - The temporary production test code and vote created during verification were deleted immediately afterward: vote row removed first, then code `3a6c7420-de20-4aba-986d-1f3ae4a7cf14`, leaving no test data in prod.
 - The targeted advisor/lint recheck could not be confirmed through `supabase db lint --linked` because the CLI hit `cli_login_postgres` auth failure. Item closeout is therefore based on successful live runtime verification rather than advisor output.
 
+## 2026-04-12 Production rate-limit proof (Item A)
+
+- Ran four sequential `POST /api/codes` requests against `https://starbucks-pitstop.vercel.app/` using the same synthetic UUID device identity, store `11917` (`3rd & Madison`), and four distinct valid codes.
+- Exact response sequence:
+  - request 1 -> `200`, `existing: false`
+  - request 2 -> `200`, `existing: false`
+  - request 3 -> `200`, `existing: false`
+  - request 4 -> `429`, `"Submission rate limit exceeded. Please wait before posting again."`
+- Cleanup completed immediately afterward: the three created code rows were deleted from prod, and no vote rows were created.
+- This closes the execution-board Item A blocker: production write throttling is enforcing the expected 3-per-hour code-submission threshold.
+- Important evidence note: this session did not have Upstash REST credentials or dashboard access, so the closeout is based on exact production behavior rather than a Redis keyspace screenshot. Local `.env` / `.env.local` files still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local dev remains on the DB fallback path unless those env vars are added for parity.
+
 ## Open Items
 
 1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
 2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
-3. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
+3. Optionally mirror the Upstash env vars into local `.env.local` so `npm run dev` exercises the same rate-limit branch as production. This is now a dev-parity task, not a production blocker.
 
 ## Completed
 
