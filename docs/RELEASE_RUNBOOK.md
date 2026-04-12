@@ -314,7 +314,7 @@ Common patterns to look for:
 2. **Project health:** Confirm the project is not paused (free-tier projects pause after inactivity).
 3. **Table Editor → `codes` / `votes`:** Confirm rows exist (data loss would be visible here).
 4. **Authentication → Policies:** Confirm RLS policies on `codes` and `votes` have not been changed.
-   - All writes go through `SECURITY DEFINER` RPCs called with the service role key — RLS should not block them. If it does, a policy was changed outside the migration path.
+   - All writes go through `SECURITY INVOKER` RPCs called with the service role key — RLS still should not block them because the service role bypasses RLS. If it does, a policy, grant, or RPC definition changed outside the migration path.
 5. **SQL Editor — quick connectivity check:**
    ```sql
    SELECT count(*) FROM stores WHERE is_excluded = false;

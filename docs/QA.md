@@ -1,6 +1,6 @@
 # QA Log
 
-Last updated: 2026-04-10 20:38 MST
+Last updated: 2026-04-12 11:27 MST
 
 ## Status: Production-ready
 
@@ -27,6 +27,24 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
   - cold pass on canonical host: Performance 42 / Accessibility 100 / Best Practices 96 / SEO 100
   - warmed pass on canonical host: Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100
 - Release conclusion: Wave 2 passed against the canonical URL. No active release blockers remain.
+
+### 2026-04-12 SECURITY INVOKER hardening verification
+
+- Applied migration `20260412010000_security_invoker_and_search_path_hardening.sql`.
+- `public_store_read_model` and `public_code_read_model` now run with `security_invoker = true`; anon/authenticated access on those views was revoked and `service_role` retained explicit `SELECT`.
+- `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code` now run as `SECURITY INVOKER` with `SET search_path = public, pg_temp`. `wilson_score`, `nearby_stores`, `search_stores_by_text`, and `set_updated_at` also pin `search_path = public, pg_temp`.
+- Verification on `https://starbucks-pitstop.vercel.app/` after apply:
+  - `HEAD /` -> `200`
+  - `/api/locations?bbox=-122.5,47.4,-122.2,47.7` -> `200`, 156 stores, `meta.source: "supabase"`
+  - `/api/locations?lat=47.6062&lng=-122.3321&radius=5` -> `200`, 73 stores, distance-ordered
+  - `/api/search?q=pike` -> `200`, 10 stores
+  - `/api/search?q=a` -> expected `400` validation response with structured details
+  - `HEAD /manifest.webmanifest` -> `200`
+  - `POST /api/codes` -> `200`
+  - `POST /api/votes` -> `200`
+  - duplicate `POST /api/votes` -> `409` with `"You have already voted on this code."`
+- Cleanup: deleted the temporary verification artifact from prod after the check by deleting the vote row first and then code `3a6c7420-de20-4aba-986d-1f3ae4a7cf14`.
+- The targeted advisor/lint recheck was blocked by `cli_login_postgres` auth in `supabase db lint --linked`, so the closeout criterion is satisfied by functional runtime verification rather than advisor output.
 
 ### 2026-04-10 second-pass remediation (after code review)
 
@@ -75,7 +93,7 @@ Performance improved from 35 -> 59 versus the first preview, primarily due to th
 - `npm run build`
   - passed on 2026-04-09
 - `npm run test`
-  - passed on 2026-04-10 — 80 tests across 9 files (53 post-second-pass-remediation + 27 added in Wave 1 security-invariants pass)
+  - passed on 2026-04-10 — 80 tests across 9 files, including the 27 cases added in the Wave 1 security-invariants pass
   - includes targeted coverage added during the 2026-04-09 remediation pass:
     - search safety: commas, parentheses, quotes, percent signs, backslashes, mixed punctuation (10 tests)
     - store query behavior: bbox filtering, radius ordering, limit enforcement (8 tests)
@@ -163,7 +181,6 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 - [ ] Literal physical-device spot check for geolocation and touch-map behavior. Browser verification at 375 / 768 / 1024 / 1440 is already complete.
 - [ ] Tighten the search RPC design so multi-field queries like `Seattle, WA` or `Phoenix, AZ 85016` can resolve — would need a small tokenizer, not a remediation-pass fix.
 - [ ] Provision Upstash so `RATE_LIMIT_SECRET`-driven rate limiting moves off the DB fallback path. Currently `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are empty and `enforceRateLimit` correctly falls through to Supabase COUNT queries.
-- [ ] Audit the `SECURITY DEFINER` read-model views and move them to `SECURITY INVOKER` if the bypass is not load-bearing.
 - [x] Restrict the public Mapbox token by URL in the Mapbox dashboard. Done 2026-04-12T01:03:29Z UTC via the Mapbox Tokens API on token `cmnr5hlhd00jh2vpoopc6k7t5` (account `three-olives`). Verified with seven `curl` probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`: allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, an explicitly-listed `…-q4px1h5ab-williamjake.vercel.app`) all returned `200`; `example.com`, an unlisted preview-style host, and a request with **no Referer header at all** all returned `403 FORBIDDEN`. The token is now functionally browser-only — Mapbox rejects Referer-less requests once URL restrictions are active. No wildcard for preview deployments: each new preview URL must be appended explicitly. See `docs/BUILD_STATUS.md` 2026-04-11 entry.
 
 ## Known Limitations

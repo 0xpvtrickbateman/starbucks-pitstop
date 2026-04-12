@@ -307,7 +307,7 @@ Why:
 Tradeoff:
 
 - A literal physical-device field check for geolocation/touch behavior is still worth doing, but the release gate is satisfied by the existing automated coverage plus live browser verification on the canonical host.
-- Security hardening follow-ups remain (`SECURITY DEFINER` read-model views, Mapbox URL restrictions, Upstash provisioning), but they are not launch blockers for the current release.
+- A few post-launch hardening items still remain, but they are not launch blockers for the current release.
 
 Follow-up:
 
@@ -337,6 +337,33 @@ Evidence:
 
 - Verification probes and exact HTTP results recorded in `docs/QA.md` (Remaining Open Items, Mapbox bullet) and `docs/BUILD_STATUS.md` (2026-04-11 entry).
 - Restriction `modified` timestamp returned by the Mapbox Tokens API: `2026-04-12T01:03:29.333Z`.
+
+## 2026-04-12: Release coordinator — remove redundant SECURITY DEFINER usage from views and write RPCs
+
+Decision:
+
+- Apply `20260412010000_security_invoker_and_search_path_hardening.sql`.
+- Switch `public_store_read_model` and `public_code_read_model` to `security_invoker = true`, revoke anon/authenticated access on the view surface, and retain explicit `SELECT` for `service_role`.
+- Rewrite `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code` as `SECURITY INVOKER`.
+- Pin `search_path = public, pg_temp` on `submit_code_report`, `recompute_store_code_scores`, `vote_on_code`, `wilson_score`, `nearby_stores`, `search_stores_by_text`, and `set_updated_at`.
+
+Why:
+
+- Current app reads are server-mediated through `createServiceRoleClient()` and not through a browser-side anon client. In the checked-in code, read-model access lives in `src/lib/store-data.ts`, called from server paths like `src/app/api/search/route.ts` and `src/app/location/[id]/page.tsx`.
+- With that Path 1 assumption confirmed, the read-model views do not need creator-privilege semantics. `security_invoker = true` removes unnecessary RLS bypass from the view layer without changing the app's runtime behavior.
+- The write RPCs are only invoked from API routes via the service-role client. Because service role already bypasses RLS, `SECURITY DEFINER` was redundant privilege elevation.
+- Pinning `search_path = public, pg_temp` addresses the mutable-`search_path` warning surface without changing the function contracts.
+
+Verification:
+
+- `npm run test` remained green at **80 tests across 9 files**.
+- Canonical-host runtime verification passed after apply:
+  - GET checks 1-6 from `docs/RELEASE_RUNBOOK.md` still returned the expected `200` / `400` results.
+  - Live code submit returned `200`.
+  - Live vote returned `200`.
+  - Duplicate vote still returned `409` with `"You have already voted on this code."`
+- The temporary production verification artifact was cleaned up immediately afterward by deleting the vote row first and then the submitted code row (`3a6c7420-de20-4aba-986d-1f3ae4a7cf14`), leaving no test data in prod.
+- A follow-up `supabase db lint --linked` attempt hit `cli_login_postgres` auth failure, so the closeout is based on successful runtime verification rather than advisor CLI output.
 
 ## Pending
 

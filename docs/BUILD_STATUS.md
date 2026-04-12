@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-11 18:05 MST
+Last updated: 2026-04-12 11:27 MST
 
 ## Current State: Production-ready
 
@@ -62,12 +62,24 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
   - **No Referer header at all** → `403 FORBIDDEN`. Mapbox blocks Referer-less requests when URL restrictions are active, so the token is now functionally browser-only.
 - Operational note: there is no wildcard. Future preview deployments will return `403` until their URL is appended to the allowlist. If preview-deploy churn becomes painful, switch strategies (e.g., preview-only secondary token, or a tokens-write CI step that appends each new deployment URL on `vercel deploy`).
 
+## 2026-04-12 Supabase SECURITY INVOKER hardening
+
+- Added and applied `20260412010000_security_invoker_and_search_path_hardening.sql`.
+- `public_store_read_model` and `public_code_read_model` now run with `security_invoker = true`; anon/authenticated access on the view surface was revoked, and `service_role` retained explicit `SELECT`.
+- `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code` were rewritten as `SECURITY INVOKER` with `SET search_path = public, pg_temp`. `wilson_score`, `nearby_stores`, `search_stores_by_text`, and `set_updated_at` now also pin `search_path = public, pg_temp`.
+- Runtime verification passed on the canonical production URL after the migration:
+  - runbook GET checks 1-6 still returned the expected `200`/`400` results
+  - live code submit returned `200`
+  - live vote returned `200`
+  - duplicate vote still returned `409` with the expected `"You have already voted on this code."` response
+- The temporary production test code and vote created during verification were deleted immediately afterward: vote row removed first, then code `3a6c7420-de20-4aba-986d-1f3ae4a7cf14`, leaving no test data in prod.
+- The targeted advisor/lint recheck could not be confirmed through `supabase db lint --linked` because the CLI hit `cli_login_postgres` auth failure. Item closeout is therefore based on successful live runtime verification rather than advisor output.
+
 ## Open Items
 
 1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
 2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
 3. Provision Upstash so rate limiting stops falling back to the DB path. The fallback is now indexed and safe, but Upstash is still preferred for distributed correctness under concurrent writes.
-4. Audit the `SECURITY DEFINER` read-model views and reclassify to `SECURITY INVOKER` if the bypass is not load-bearing.
 
 ## Completed
 

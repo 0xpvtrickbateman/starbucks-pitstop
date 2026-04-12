@@ -1,5 +1,5 @@
 # Production Environment Summary
-Generated: 2026-04-10 20:38 MST (Wave-2 gate report; superseded by canonical-host verification)
+Generated: 2026-04-10 20:38 MST (Wave-2 gate report; updated 2026-04-12 11:27 MST for Item B closeout)
 
 ---
 
@@ -69,7 +69,14 @@ Env var presence was confirmed indirectly on 2026-04-10 via behavioral smoke aga
 
 Token prefix: `pk.eyJ1IjoidGhyZWUtb2xpdmVzIi...` (public token, user=three-olives).
 
-URL-whitelist restriction status: **unverified — tracked as a non-blocking advisory.** The Mapbox dashboard was not queried (no Mapbox MCP tool available). The token is a public (`pk.`) token visible in client bundles. Without URL restrictions it is usable by anyone who finds it in the page source, which is a cost/abuse concern rather than a correctness concern. This item is classified non-blocking in the advisory list at the bottom of the BLOCKERS section — recommended as a pre-scale or post-launch follow-up, **not a Wave 2 prerequisite**.
+URL-whitelist restriction status: **verified and active**. The public token `cmnr5hlhd00jh2vpoopc6k7t5` was restricted via the Mapbox Tokens API at `2026-04-12T01:03:29.333Z`. Allowed origins are `https://starbucks-pitstop.vercel.app`, `https://stopatstarbucks.vercel.app`, `http://localhost:3000`, and the explicit list of existing `starbucks-pitstop-<hash>-williamjake.vercel.app` preview URLs recorded in `docs/BUILD_STATUS.md`.
+
+Verification probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`:
+
+- Allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, and an explicitly listed preview URL) returned `200`.
+- Disallowed Referers (`https://example.com/`, an unlisted preview-style host, and a request with **no Referer header**) returned `403 FORBIDDEN`.
+
+Operational note: Mapbox URL restrictions are literal, not wildcarded. Each new preview deployment URL must be added explicitly if preview-map access is needed.
 
 ---
 
@@ -95,17 +102,16 @@ URL-whitelist restriction status: **unverified — tracked as a non-blocking adv
 | `public.votes` | YES | **NONE** — RLS_ENABLED_NO_POLICY (INFO advisory) |
 | `public.spatial_ref_sys` | NO | n/a — ERROR advisory: RLS_DISABLED_IN_PUBLIC |
 
-**Security advisories from Supabase linter:**
+**Current advisory posture:**
 
 | Severity | Finding |
 |---|---|
 | INFO | `public.stores`, `public.codes`, `public.votes`: RLS enabled with no policies. This is the **intentional pattern** for server-mediated writes — anonymous clients get deny-all from Postgres, while mutations go through server routes using the service-role key (which bypasses RLS). Classified INFO by the Supabase linter, not ERROR. |
 | ERROR | `public.spatial_ref_sys`: RLS disabled on a public-schema table. |
-| ERROR | Views `public_store_read_model` and `public_code_read_model` use SECURITY DEFINER — they bypass RLS of the querying user. |
-| WARN | Functions `wilson_score`, `nearby_stores`, `set_updated_at`, `search_stores_by_text` have mutable `search_path` (SQL injection risk surface). |
+| RESOLVED | `20260412010000_security_invoker_and_search_path_hardening.sql` switched `public_store_read_model` / `public_code_read_model` to `security_invoker = true`, moved the write RPCs to `SECURITY INVOKER`, and pinned `search_path = public, pg_temp` on the flagged functions. Runtime verification passed after apply; the follow-up CLI advisor recheck was blocked by `cli_login_postgres` auth. |
 | WARN | PostGIS extension installed in `public` schema; should be moved to a separate schema. |
 
-**Critical implication:** RLS is on but no policies exist on `stores`, `codes`, `votes`. With Postgres deny-all semantics this means anonymous clients cannot read any of these tables directly — which is consistent with the app using server-side API routes and the service role key for writes. However, the views `public_store_read_model` and `public_code_read_model` with SECURITY DEFINER bypass RLS and could expose data. This should be reviewed before any broader public launch or scale event, but it is not the remaining release gate for the current release.
+**Critical implication:** RLS is on but no policies exist on `stores`, `codes`, `votes`. With Postgres deny-all semantics this means anonymous clients cannot read any of these tables directly — which is consistent with the app using server-side API routes and the service role key for writes. After `20260412010000_security_invoker_and_search_path_hardening.sql`, the read-model views no longer bypass RLS semantics through `SECURITY DEFINER`, and the write RPCs no longer carry redundant creator-privilege elevation. The remaining advisories are the intentional server-mediated deny-all posture for anon direct table access plus the standard PostGIS/system-table warnings.
 
 ---
 
@@ -129,7 +135,7 @@ The app's `config.ts` has `hasUpstashEnv()` which gates the Upstash path. When U
 
 **Rate limiting:** Active via the Supabase DB fallback path (`src/lib/rate-limit.ts:75-113`), verified by a `POST /api/votes` probe that reached the post-HMAC, post-rate-limit "Code not found" branch. Upstash is deferred to a post-scale follow-up per `docs/DECISIONS.md` 2026-04-10 entry — **not a release gate**.
 
-**Supabase:** Dedicated prod project (`ipjqdcuqykbrhsjwfjoh`) is ACTIVE_HEALTHY. RLS enabled on sensitive tables with no policies — the intentional server-mediated pattern (INFO advisory, not ERROR). Two SECURITY DEFINER views (`public_store_read_model`, `public_code_read_model`) bypass RLS and are a legitimate ERROR-level advisory worth reviewing before any broader public-scale launch, but they are not the remaining release gate for the current release.
+**Supabase:** Dedicated prod project (`ipjqdcuqykbrhsjwfjoh`) is ACTIVE_HEALTHY. RLS enabled on sensitive tables with no policies — the intentional server-mediated pattern (INFO advisory, not ERROR). On 2026-04-12, `public_store_read_model` and `public_code_read_model` were switched to `security_invoker = true`, the write RPCs were moved to `SECURITY INVOKER`, and the flagged utility functions had `search_path = public, pg_temp` pinned. Runtime verification passed after apply; the follow-up advisor CLI recheck was blocked by `cli_login_postgres` auth.
 
 **Remaining release blocker:** None. Canonical-host verification is complete; remaining items are deferred follow-ups and advisories.
 
@@ -156,20 +162,19 @@ Current state (rechecked 2026-04-10 20:35 MST):
 
 **Completion note:** the dashboard redirect was removed on 2026-04-10, and the canonical-host release gate is now closed. See `docs/research/verification-summary.md` for the completed Wave 2 evidence.
 
-### ADVISORY — SECURITY DEFINER read-model views bypass RLS (MEDIUM, not a release gate)
-Supabase security linter flags two views as ERROR-level `security_definer_view`:
+### RESOLVED — Read-model views and write RPCs hardened to SECURITY INVOKER (release coordinator, 2026-04-12)
 
-- `public.public_store_read_model`
-- `public.public_code_read_model`
+- Applied migration `20260412010000_security_invoker_and_search_path_hardening.sql`.
+- `public.public_store_read_model` and `public.public_code_read_model` now run with `security_invoker = true`.
+- Anon/authenticated access on the view surface was revoked; `service_role` retained explicit `SELECT`.
+- `submit_code_report`, `recompute_store_code_scores`, and `vote_on_code` now run as `SECURITY INVOKER`.
+- `wilson_score`, `nearby_stores`, `search_stores_by_text`, and `set_updated_at` now pin `search_path = public, pg_temp`.
+- Runtime verification passed after apply on the canonical production URL, including the duplicate-vote edge case. A follow-up advisor/lint recheck was attempted, but `supabase db lint --linked` was blocked by `cli_login_postgres` auth, so the closeout is based on functional evidence rather than advisor CLI output.
 
-`SECURITY DEFINER` views enforce the creator's permissions rather than the querying user's, so they bypass RLS on the underlying tables. These views are the surface used by the API routes (`src/lib/store-data.ts`) to expose store and code data, and the intentional design is that each view projects only safe-to-expose columns. The recommended follow-up is to audit the view bodies' column projection and `WHERE` clauses, and to reclassify each view as `SECURITY INVOKER` if the RLS-bypass behavior is not load-bearing. Worth resolving before any public-facing scale event, but not a blocker for the current release.
-
-**Clarification on the related RLS-no-policy advisory:** The Supabase linter also reports `rls_enabled_no_policy` on `public.stores`, `public.codes`, and `public.votes`, but that finding is **INFO**-level — see the severity table in section 5 above. It is the intentional server-mediated write pattern (anon clients get Postgres deny-all; all mutations go through server routes using the service-role key) and is NOT a release blocker. Earlier drafts of this document grouped it with the SECURITY DEFINER views under a single BLOCKER heading; that grouping was incorrect and has been split.
+**Clarification on the related RLS-no-policy advisory:** `rls_enabled_no_policy` on `public.stores`, `public.codes`, and `public.votes` remains **INFO**-level — see the severity table in section 5 above. It is the intentional server-mediated write pattern (anon clients get Postgres deny-all; all mutations go through server routes using the service-role key) and is NOT a release blocker.
 
 ### Non-blocking advisories
-- Mapbox token URL restriction: unverified, follow-up needed.
 - PostGIS in `public` schema: WARN, low risk.
-- Function `search_path` mutable (`wilson_score`, `nearby_stores`, `set_updated_at`, `search_stores_by_text`): WARN, should be remediated post-launch.
 - `public.spatial_ref_sys` RLS disabled: ERROR advisory but is the standard PostGIS system-table exception; not actionable for app-owned tables.
 
 ---
@@ -178,8 +183,9 @@ Supabase security linter flags two views as ERROR-level `security_definer_view`:
 
 This file was created by the deployment-env-worker during Wave 1 on 2026-04-10. The initial draft classified all 5 required production env vars as "unverified" and grouped `rls_enabled_no_policy` on `stores`/`codes`/`votes` with the SECURITY DEFINER views under a single ERROR-level BLOCKER heading. Neither of those classifications survived review.
 
-The release coordinator has since revised the file to reflect the behavioral proof chain that emerged from Wave-2 prep smoke against the then-promoted production deployment, to date-anchor deployment references so they don't go stale on each doc-only redeploy, to split the RLS-no-policy INFO advisory away from the SECURITY DEFINER ERROR advisory, and to align the Mapbox URL-restriction priority with its non-blocking classification.
+The release coordinator has since revised the file to reflect the behavioral proof chain that emerged from Wave-2 prep smoke against the then-promoted production deployment, to date-anchor deployment references so they don't go stale on each doc-only redeploy, to split the RLS-no-policy INFO advisory away from the resolved view/RPC hardening work, and to replace the earlier Mapbox restriction placeholder with the actual verified allowlist and probe results.
 
 On 2026-04-10 at 20:28 MST, the release coordinator rechecked the canonical host with `curl -I` plus Vercel CLI alias/deployment inspection, confirming that the redirect persisted while both aliases still pointed at `dpl_13WcCUXpgHz46ZVgHfeVo6z6mQBu`. On the same evening, the redirect was removed and the canonical host was re-verified at `HTTP/2 200`.
+On 2026-04-12, the release coordinator applied the `SECURITY INVOKER` / `search_path` hardening migration and verified the production write path end-to-end; the temporary test code and vote were deleted immediately afterward.
 
 This file is now superseded by `docs/research/verification-summary.md` for live release status. For the full revision trail, see `git log docs/research/prod-env-summary.md`.

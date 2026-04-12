@@ -67,5 +67,3 @@ Remaining work is post-launch hardening:
 
 - physical-device spot check for geolocation and touch-map behavior
 - Upstash provisioning
-- `SECURITY DEFINER` view audit
-- Mapbox token URL restrictions
