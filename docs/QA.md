@@ -1,10 +1,10 @@
 # QA Log
 
-Last updated: 2026-04-12 14:33 MST
+Last updated: 2026-04-12 16:57 MST
 
-## Status: Production-ready
+## Status: Release candidate pending physical-device touch-map QA
 
-All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification has now completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors.
+All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors. The only remaining release gate is a literal physical-device touch-map pass on phone hardware.
 
 ### 2026-04-10 Wave 2 canonical-host verification
 
@@ -26,7 +26,7 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
 - Production Lighthouse:
   - cold pass on canonical host: Performance 42 / Accessibility 100 / Best Practices 96 / SEO 100
   - warmed pass on canonical host: Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100
-- Release conclusion: Wave 2 passed against the canonical URL. No active release blockers remain.
+- Release conclusion: Wave 2 passed against the canonical URL. One final release gate remains: literal physical-device touch-map verification.
 
 ### 2026-04-12 SECURITY INVOKER hardening verification
 
@@ -100,6 +100,12 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
   - `npm run lint` -> pass
   - `npm run build` -> pass
 - Conclusion: the remaining backend-security checklist items are now closed by direct unit coverage instead of code inspection or runtime inference alone.
+
+### 2026-04-12 Touch-device QA scoping decision
+
+- Search behavior is **working as designed** for the current release: `handleSearch` auto-selects the first local/API match, recenters the map, and opens store detail. A multi-result tappable search list is not part of the current product surface and is tracked as a post-release enhancement if product wants it.
+- `MobileSheet.tsx` is currently **button-driven only** (`Collapse details` / `Expand details` and `Close panel`). Swipe gestures are not implemented in the component today. That is accepted for release as a non-blocking UX limitation rather than a launch blocker.
+- Playwright touch emulation was useful for desktop-width and tablet-width smoke, but not authoritative for pinch/swipe fidelity on Mapbox GL or the sheet surface. The final gate is therefore a literal physical-device pass, not more synthetic browser touch automation.
 
 ### 2026-04-10 second-pass remediation (after code review)
 
@@ -233,12 +239,17 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 
 ## Remaining Open Items
 
-- [ ] Literal physical-device spot check for geolocation and touch-map behavior. Browser verification at 375 / 768 / 1024 / 1440 is already complete.
-- [ ] Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. The current fallback is explicitly accepted for this release.
+- [ ] Literal physical-device spot check for geolocation and touch-map behavior on real phone hardware. Required interactions: load home page, search and auto-open a known match, pinch-zoom to `z14+`, pan at `z14+`, tap an individual pin, and zoom back out to confirm clean re-clustering.
 - [x] Restrict the public Mapbox token by URL in the Mapbox dashboard. Done 2026-04-12T01:03:29Z UTC via the Mapbox Tokens API on token `cmnr5hlhd00jh2vpoopc6k7t5` (account `three-olives`). Verified with seven `curl` probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`: allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, an explicitly-listed `…-q4px1h5ab-williamjake.vercel.app`) all returned `200`; `example.com`, an unlisted preview-style host, and a request with **no Referer header at all** all returned `403 FORBIDDEN`. The token is now functionally browser-only — Mapbox rejects Referer-less requests once URL restrictions are active. No wildcard for preview deployments: each new preview URL must be appended explicitly. See `docs/BUILD_STATUS.md` 2026-04-11 entry.
+
+## Post-release Hardening
+
+- Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. The current fallback is explicitly accepted for this release.
 
 ## Known Limitations
 
 - Lighthouse Performance score on a cold preview is not representative of warm-path performance; rerun against a warmed prod URL for an accurate baseline.
 - Search tokenization now treats 2-letter alpha tokens as state abbreviations by design. That is intentional for queries like `WA`; if future UX work needs alternate semantics for terse inputs like `LA`, revisit the classifier rather than moving search logic into the route layer.
+- Search currently auto-selects the first store/API match and opens detail immediately. A multi-result results list is not implemented in the current map-first UX.
+- `MobileSheet.tsx` supports button-driven open/collapse/close controls only. Swipe-to-expand / swipe-to-dismiss is not implemented and is accepted as a non-blocking touch UX limitation for this release.
 - E2E tests are mocked at the network layer and do not exercise real Supabase writes — the 2026-04-10 live pass above is the authoritative end-to-end check.

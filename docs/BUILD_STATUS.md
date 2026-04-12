@@ -1,10 +1,10 @@
 # Build Status
 
-Last updated: 2026-04-12 14:33 MST
+Last updated: 2026-04-12 16:57 MST
 
-## Current State: Production-ready
+## Current State: Release candidate pending physical-device touch-map QA
 
-The app builds, passes all automated checks, serves directly from the canonical production host, and has now cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The only active release blocker was the Vercel dashboard redirect on the canonical host; that redirect has been removed and the production URL now returns `HTTP/2 200`. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The canonical-host redirect is gone, the production URL now returns `HTTP/2 200`, and the browser/production evidence is strong. The one remaining release gate is a literal physical-device touch-map pass on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
 
 ## 2026-04-10 Canonical URL Gate Closed
 
@@ -26,7 +26,7 @@ The app builds, passes all automated checks, serves directly from the canonical 
 - Lighthouse on the canonical host recorded:
   - first pass: Performance 42 / Accessibility 100 / Best Practices 96 / SEO 100
   - warmed pass: Performance 81 / Accessibility 100 / Best Practices 96 / SEO 100
-- Release conclusion: production launch gates are closed. Remaining items are non-blocking follow-ups.
+- Release conclusion: the canonical-host and browser/production evidence gates are closed. One final release gate remains: physical-device touch-map verification.
 
 ## 2026-04-10 Verification Summary
 
@@ -130,10 +130,19 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
   - `npm run build` -> pass
 - Result: the backend checklist is now closed on direct automated evidence for rate-limit branching and device-ID hashing, not just live-behavior inference.
 
+## 2026-04-12 Touch-device QA scoping decision
+
+- Search is intentionally map-first for this release. The current `handleSearch` flow auto-selects the first store/API match, recenters the map, and opens the detail panel. A separate multi-result tappable search list is not implemented and is treated as a post-release enhancement, not a blocker.
+- `MobileSheet.tsx` currently supports button-driven toggle/close controls only. Swipe gestures are not implemented in the sheet component and are accepted for the current release as a non-blocking UX limitation.
+- Because Playwright touch synthesis is not authoritative for Mapbox GL pinch/swipe fidelity, the remaining gate is a literal phone-based pass for pinch/pan/high-zoom pin interaction rather than more synthetic browser automation.
+
 ## Open Items
 
-1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
-2. Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. For the current release, the fallback is an explicit, documented acceptance rather than an accidental configuration gap.
+1. Run a literal physical-device touch-map spot check on phone hardware: load home page, search and auto-open a known match, pinch-zoom to `z14+`, pan at `z14+`, tap an individual pin, and zoom back out to confirm clean re-clustering.
+
+## Post-release Hardening
+
+1. Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. For the current release, the fallback is an explicit, documented acceptance rather than an accidental configuration gap.
 
 ## Completed
 
@@ -191,4 +200,4 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 
 ## Next Actions
 
-Production launch gates are closed. The remaining open items are tracked above and are advisory or post-launch hardening work, not blockers for the current release.
+One final release gate remains: the physical-device touch-map pass described above. Everything else is either closed or explicitly accepted as post-release hardening.
