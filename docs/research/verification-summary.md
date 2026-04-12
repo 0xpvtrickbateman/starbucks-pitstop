@@ -66,3 +66,4 @@ The release blocker was the Vercel dashboard redirect on `starbucks-pitstop.verc
 Remaining work is post-launch hardening:
 
 - physical-device spot check for geolocation and touch-map behavior
+- Provision Upstash before any traffic-scale event if you want production off the indexed DB fallback path. Current production enforcement is verified, but `vercel env ls production` confirms the Upstash vars are not configured.

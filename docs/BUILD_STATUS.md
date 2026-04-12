@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-12 12:28 MST
+Last updated: 2026-04-12 13:54 MST
 
 ## Current State: Production-ready
 
@@ -85,13 +85,14 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
   - request 4 -> `429`, `"Submission rate limit exceeded. Please wait before posting again."`
 - Cleanup completed immediately afterward: the three created code rows were deleted from prod, and no vote rows were created.
 - This closes the execution-board Item A blocker: production write throttling is enforcing the expected 3-per-hour code-submission threshold.
-- Important evidence note: this session did not have Upstash REST credentials or dashboard access, so the closeout is based on exact production behavior rather than a Redis keyspace screenshot. Local `.env` / `.env.local` files still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local dev remains on the DB fallback path unless those env vars are added for parity.
+- `vercel env ls production` recheck at 2026-04-12 13:54 MST confirmed that `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are **absent** on the production deployment. The observed `200, 200, 200, 429` sequence therefore came from the indexed Supabase fallback path, not Upstash.
+- Coordinator acceptance: this is still safe for the current release because the fallback is DB-backed and therefore durable across serverless invocations, with supporting composite indexes already applied. The known tradeoffs are one extra DB query per mutation and a slightly leaky soft cap under concurrent bursts from the same hashed device until the DB unique constraints catch meaningful duplicates.
 
 ## Open Items
 
 1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
 2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
-3. Optionally mirror the Upstash env vars into local `.env.local` so `npm run dev` exercises the same rate-limit branch as production. This is now a dev-parity task, not a production blocker.
+3. Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. For the current release, the fallback is an explicit, documented acceptance rather than an accidental configuration gap.
 
 ## Completed
 

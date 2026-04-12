@@ -265,6 +265,12 @@ Follow-up:
 
 - Provision Upstash Redis before any public-scale event. Set the two env vars in Vercel prod + preview. No code change required — `getRatelimit()` already gates on `hasUpstashEnv()`.
 
+Recheck (2026-04-12 13:54 MST):
+
+- `vercel env ls production` on the linked Vercel project showed that `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are still absent on the production deployment.
+- The 2026-04-12 Item A proof (`POST /api/codes` -> `200`, `200`, `200`, `429`) therefore exercised the **indexed Supabase fallback path**, not Upstash.
+- Decision unchanged: ship on the DB-backed fallback for the current release and treat Upstash provisioning as a pre-scale follow-up rather than a launch gate.
+
 ## 2026-04-10: Release coordinator — canonical production URL is `starbucks-pitstop.vercel.app`
 
 Decision:
@@ -377,15 +383,17 @@ Why:
 - A real non-`17844` production store was used (`11917`, `3rd & Madison`) to avoid any residual association with the earlier migration-verification artifact.
 - The fourth request returned the expected `429` body: `"Submission rate limit exceeded. Please wait before posting again."`
 - The three temporary code rows created during the proof were deleted immediately afterward, leaving no production residue.
+- `vercel env ls production` immediately afterward showed that `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are absent in production, so the proof specifically confirms the **indexed Supabase fallback** is the live backend today.
 
 Tradeoff:
 
-- This session did not have Upstash REST credentials or dashboard access, so the closeout is based on exact runtime behavior rather than direct Redis keyspace inspection.
-- Local `.env` / `.env.local` still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local development remains on the indexed DB fallback path unless those env vars are added for parity.
+- The live backend is the DB-backed fallback, not Upstash. That is still distributed and durable across serverless invocations because state lives in Postgres, not in process memory.
+- The real limitations of the fallback are: one extra DB count query per mutation, more coupling to database latency/load than the Redis path, and a slightly leaky soft cap under concurrent bursts from the same hashed device because two requests can observe `count < limit` before either commits. The DB uniqueness constraints still bound meaningful duplicates.
+- Local `.env` / `.env.local` still leave `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` blank, so local development currently matches the same fallback branch unless those env vars are added for parity later.
 
 Follow-up:
 
-- Treat production rate-limit enforcement as verified and move the remaining rate-limit work to local dev parity only.
+- Treat production rate-limit enforcement as verified for release and keep Upstash provisioning as a pre-scale hardening task, not a launch blocker.
 
 ## Pending
 
