@@ -27,7 +27,7 @@ Before triggering a deploy, confirm the following local gates are green on the r
 ```bash
 npm run lint          # ESLint — must exit 0
 npx tsc --noEmit     # TypeScript type check — must exit 0
-npm run test         # Vitest — must report 80 tests across 9 files passing
+npm run test         # Vitest — must report 87 tests across 10 files passing
 npm run build        # Next.js production build — must exit 0
 ```
 

@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-12 13:54 MST
+Last updated: 2026-04-12 14:00 MST
 
 ## Current State: Production-ready
 
@@ -88,11 +88,36 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - `vercel env ls production` recheck at 2026-04-12 13:54 MST confirmed that `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are **absent** on the production deployment. The observed `200, 200, 200, 429` sequence therefore came from the indexed Supabase fallback path, not Upstash.
 - Coordinator acceptance: this is still safe for the current release because the fallback is DB-backed and therefore durable across serverless invocations, with supporting composite indexes already applied. The known tradeoffs are one extra DB query per mutation and a slightly leaky soft cap under concurrent bursts from the same hashed device until the DB unique constraints catch meaningful duplicates.
 
+## 2026-04-12 Multi-field search tokenizer shipped (Item C)
+
+- Added and applied `20260412141000_search_stores_multi_field_tokens.sql`.
+- `search_stores_by_text` now tokenizes on commas + whitespace inside SQL, classifies 5-digit ZIP tokens and 2-letter state tokens, ANDs the classified filters together, and keeps free-text matching inside the RPC instead of moving search logic into the route layer.
+- The search haystack now includes an abbreviation-expanded street form, which is what lets `Pike Place` resolve to `1912 Pike Pl` / `Original Starbucks` without hand-written route logic.
+- Added route-level coverage in `tests/unit/search-route.test.ts` for:
+  - `Seattle, WA`
+  - `Phoenix, AZ 85016`
+  - `Seattle`
+  - `WA`
+  - `85016`
+  - `Pike Place`
+- Verification:
+  - `npm run test` — `87/87` across `10` files
+  - `npx tsc --noEmit` — pass
+  - `npm run lint` — pass
+  - `npm run build` — pass
+  - `supabase db push --linked --yes` — applied cleanly
+  - live production queries on `https://starbucks-pitstop.vercel.app/api/search` returned sane first hits:
+    - `Seattle, WA` -> `17844` `35th & Fauntleroy`
+    - `Phoenix, AZ 85016` -> `10896` `Starbucks`, Phoenix
+    - `Seattle` -> `17844` `35th & Fauntleroy`
+    - `WA` -> `7884` `Starbucks`, Aberdeen
+    - `85016` -> `10896` `Starbucks`, Phoenix
+    - `Pike Place` -> `overture:9a25bb77-4b56-467b-ac0e-343420aec78a` `Original Starbucks`
+
 ## Open Items
 
 1. Run a literal physical-device spot check for map pan/zoom and geolocation behavior. Browser verification at the target widths is complete, so this is no longer a release gate.
-2. Tighten the search RPC to handle multi-field queries like `Seattle, WA` (currently returns 0 by design).
-3. Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. For the current release, the fallback is an explicit, documented acceptance rather than an accidental configuration gap.
+2. Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. For the current release, the fallback is an explicit, documented acceptance rather than an accidental configuration gap.
 
 ## Completed
 
@@ -132,7 +157,7 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - Verified all automated checks pass:
   - `npm run lint` — passed
   - `npx tsc --noEmit` — passed
-  - `npm run test` — 80 tests passed across 9 files
+  - `npm run test` — 87 tests passed across 10 files
   - `npm run build` — passed
   - `npm audit --omit=dev` — 0 vulnerabilities
 

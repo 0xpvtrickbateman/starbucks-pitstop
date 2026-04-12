@@ -395,6 +395,45 @@ Follow-up:
 
 - Treat production rate-limit enforcement as verified for release and keep Upstash provisioning as a pre-scale hardening task, not a launch blocker.
 
+## 2026-04-12: Release coordinator — keep multi-field search logic in the SQL RPC
+
+Decision:
+
+- Apply `20260412141000_search_stores_multi_field_tokens.sql`.
+- Keep the search-tokenizer and ranking rules inside `search_stores_by_text` rather than splitting them across SQL + TypeScript.
+
+Why:
+
+- The route is intentionally thin today (`src/app/api/search/route.ts` validates input and delegates). Keeping tokenization in the RPC preserves a single search contract for every caller.
+- The fix needed more than just state support: `Seattle, WA`, `Phoenix, AZ 85016`, bare `WA`, bare `85016`, and `Pike Place` all require classification + ranking behavior that would be awkward to split between TS and SQL.
+- A SQL CTE tokenizer is easier to audit than PL/pgSQL dynamic string-building and keeps the deterministic ordering rules close to the filtering rules.
+
+Tokenizer rules:
+
+- Split on commas + whitespace.
+- 5-digit numeric tokens are treated as ZIP filters.
+- 2-letter alpha tokens are treated as state filters.
+- All remaining tokens are free-text tokens that must each match somewhere in the searchable store text.
+- Ranking still favors exact/prefix phrase matches, and the searchable street text now includes an abbreviation-expanded form so `Pike Place` can match `1912 Pike Pl`.
+
+Tradeoff:
+
+- Two-letter alpha inputs are intentionally biased toward state matching. That is what makes `WA` work. If later UX work needs alternate behavior for terse ambiguous inputs like `LA`, revisit the classifier explicitly rather than smuggling TS-side exceptions into the route.
+- There is still no `pg_trgm` or text-index pass here. That remains an intentional non-change because the current dataset size is still small enough that the feature works acceptably without introducing a second migration set for text indexing.
+
+Verification:
+
+- `npm run test` passed at **87 tests across 10 files**.
+- `npx tsc --noEmit`, `npm run lint`, and `npm run build` all passed.
+- `supabase db push --linked --yes` applied the migration cleanly.
+- Live production verification on `https://starbucks-pitstop.vercel.app/api/search` returned sane first hits for:
+  - `Seattle, WA`
+  - `Phoenix, AZ 85016`
+  - `Seattle`
+  - `WA`
+  - `85016`
+  - `Pike Place`
+
 ## Pending
 
 - exact sync tiling implementation

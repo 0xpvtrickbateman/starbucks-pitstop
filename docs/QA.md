@@ -1,6 +1,6 @@
 # QA Log
 
-Last updated: 2026-04-12 13:54 MST
+Last updated: 2026-04-12 14:00 MST
 
 ## Status: Production-ready
 
@@ -61,6 +61,30 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
 - Backend-path resolution: `vercel env ls production` at 2026-04-12 13:54 MST showed `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are absent on the production deployment. The `429` therefore came from the indexed Supabase fallback path, not Upstash.
 - Acceptance note: the fallback is still release-safe because it is DB-backed and durable across serverless invocations, but it adds one DB query per mutation and the soft cap is slightly leaky under concurrent bursts until the DB uniqueness constraints catch meaningful duplicates.
 
+### 2026-04-12 Multi-field search tokenizer verification (Item C)
+
+- Applied migration `20260412141000_search_stores_multi_field_tokens.sql`.
+- `search_stores_by_text` now tokenizes inside SQL, classifies:
+  - 5-digit numeric tokens as ZIP filters
+  - 2-letter alpha tokens as state filters
+  - everything else as free-text tokens that must all match the searchable store text
+- Street-search normalization now expands common abbreviations (for example `Pl` -> `Place`) inside the RPC ranking path, which is why `Pike Place` can resolve to `1912 Pike Pl`.
+- Added route-level coverage in `tests/unit/search-route.test.ts` for `Seattle, WA`, `Phoenix, AZ 85016`, `Seattle`, `WA`, `85016`, and `Pike Place`.
+- Local verification:
+  - `npm run test` -> `87/87`
+  - `npx tsc --noEmit` -> pass
+  - `npm run lint` -> pass
+  - `npm run build` -> pass
+  - `supabase db push --linked --yes` -> migration applied cleanly
+- Live production verification on `https://starbucks-pitstop.vercel.app/api/search`:
+  - `Seattle, WA` -> first hit `17844` `35th & Fauntleroy`, Seattle
+  - `Phoenix, AZ 85016` -> first hit `10896`, Phoenix `85016`
+  - `Seattle` -> first hit `17844` `35th & Fauntleroy`
+  - `WA` -> first hit `7884`, Aberdeen WA
+  - `85016` -> first hit `10896`, Phoenix `85016`
+  - `Pike Place` -> first hit `overture:9a25bb77-4b56-467b-ac0e-343420aec78a` `Original Starbucks`
+- Conclusion: Item C is closed. Multi-field search is now a shipped capability, not an open limitation.
+
 ### 2026-04-10 second-pass remediation (after code review)
 
 A second review surfaced six additional issues. All fixed and reverified:
@@ -108,7 +132,7 @@ Performance improved from 35 -> 59 versus the first preview, primarily due to th
 - `npm run build`
   - passed on 2026-04-09
 - `npm run test`
-  - passed on 2026-04-10 — 80 tests across 9 files, including the 27 cases added in the Wave 1 security-invariants pass
+  - passed on 2026-04-12 — 87 tests across 10 files, including the 27 cases added in the Wave 1 security-invariants pass and the new search-route coverage
   - includes targeted coverage added during the 2026-04-09 remediation pass:
     - search safety: commas, parentheses, quotes, percent signs, backslashes, mixed punctuation (10 tests)
     - store query behavior: bbox filtering, radius ordering, limit enforcement (8 tests)
@@ -162,7 +186,7 @@ Overture sync ran against live DB with `--upsert`: 21,879 total rows in `stores`
 Local API smoke against real Supabase (dev server on :3100):
 - `/api/locations?lat=47.6&lng=-122.3&radius=5` returned 73 stores ordered by ascending `distanceMiles` — radius ordering fix verified.
 - Downtown Seattle tight bbox (`-122.342,47.605,-122.330,47.615`) returned 14 stores; continental bbox capped at 500. Bbox scoping fix verified.
-- Search safety strings (`Seattle, WA`, `Starbucks (Downtown)`, `Phoenix, AZ 85016`, `"Roosevelt"`, `100% match`) all returned HTTP 200 with no 500s — parameterized RPC is safe against punctuation. Note: multi-field queries like `Seattle, WA` legitimately return 0 because the RPC ILIKEs each column independently and `city` is just `Seattle` — that is a product-level search design limitation, not a remediation regression. Simple single-field queries (`Seattle`, `Phoenix`, `85016`, `Roosevelt`) all return 10 results.
+- Search safety strings (`Seattle, WA`, `Starbucks (Downtown)`, `Phoenix, AZ 85016`, `"Roosevelt"`, `100% match`) all returned HTTP 200 with no 500s — parameterized RPC is safe against punctuation. Historical note: at this point in the timeline the RPC still ILIKEd each column independently, so multi-field queries like `Seattle, WA` returned 0. That limitation was later removed by `20260412141000_search_stores_multi_field_tokens.sql`; see the 2026-04-12 Item C verification above for the live post-fix behavior.
 - `RATE_LIMIT_SECRET` was empty in `.env.local`; generated a 64-char token and persisted to both `.env.local` and all three Vercel environments (dev, preview, prod).
 - Code submit + upvote + downvote + duplicate-vote guard (409) all verified end-to-end against real Supabase; Wilson confidence scoring reflected in the response payload.
 
@@ -194,12 +218,11 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 ## Remaining Open Items
 
 - [ ] Literal physical-device spot check for geolocation and touch-map behavior. Browser verification at 375 / 768 / 1024 / 1440 is already complete.
-- [ ] Tighten the search RPC design so multi-field queries like `Seattle, WA` or `Phoenix, AZ 85016` can resolve — would need a small tokenizer, not a remediation-pass fix.
 - [ ] Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. The current fallback is explicitly accepted for this release.
 - [x] Restrict the public Mapbox token by URL in the Mapbox dashboard. Done 2026-04-12T01:03:29Z UTC via the Mapbox Tokens API on token `cmnr5hlhd00jh2vpoopc6k7t5` (account `three-olives`). Verified with seven `curl` probes against `https://api.mapbox.com/search/geocode/v6/forward?q=seattle`: allowed Referers (`starbucks-pitstop.vercel.app`, `stopatstarbucks.vercel.app`, `localhost:3000`, an explicitly-listed `…-q4px1h5ab-williamjake.vercel.app`) all returned `200`; `example.com`, an unlisted preview-style host, and a request with **no Referer header at all** all returned `403 FORBIDDEN`. The token is now functionally browser-only — Mapbox rejects Referer-less requests once URL restrictions are active. No wildcard for preview deployments: each new preview URL must be appended explicitly. See `docs/BUILD_STATUS.md` 2026-04-11 entry.
 
 ## Known Limitations
 
 - Lighthouse Performance score on a cold preview is not representative of warm-path performance; rerun against a warmed prod URL for an accurate baseline.
-- Search is a simple per-column ILIKE; multi-field strings will return 0 rows by design.
+- Search tokenization now treats 2-letter alpha tokens as state abbreviations by design. That is intentional for queries like `WA`; if future UX work needs alternate semantics for terse inputs like `LA`, revisit the classifier rather than moving search logic into the route layer.
 - E2E tests are mocked at the network layer and do not exercise real Supabase writes — the 2026-04-10 live pass above is the authoritative end-to-end check.

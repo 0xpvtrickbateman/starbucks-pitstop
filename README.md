@@ -80,6 +80,8 @@ Current migrations:
 - `20260410170000_fix_rpc_variable_conflicts.sql` — `#variable_conflict use_column` for `submit_code_report`, `recompute_store_code_scores`, `vote_on_code`
 - `20260410180000_rate_limit_fallback_indexes.sql` — composite indexes on `codes(submitted_by_hash, created_at)` and `votes(voter_hash, created_at)` to support the DB rate-limit fallback
 - `20260410180500_search_stores_deterministic_order.sql` — stable ranking + tiebreaker in `search_stores_by_text`
+- `20260412010000_security_invoker_and_search_path_hardening.sql` — switch read-model views and write RPCs to `SECURITY INVOKER`, pin `search_path`
+- `20260412141000_search_stores_multi_field_tokens.sql` — SQL CTE tokenizer for `Seattle, WA` / `Phoenix, AZ 85016` / ZIP / state / `Pike Place` search cases
 
 Key database guarantees:
 
