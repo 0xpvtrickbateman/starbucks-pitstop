@@ -1,6 +1,6 @@
 # Build Status
 
-Last updated: 2026-04-12 14:00 MST
+Last updated: 2026-04-12 14:33 MST
 
 ## Current State: Production-ready
 
@@ -112,7 +112,23 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
     - `Seattle` -> `17844` `35th & Fauntleroy`
     - `WA` -> `7884` `Starbucks`, Aberdeen
     - `85016` -> `10896` `Starbucks`, Phoenix
-    - `Pike Place` -> `overture:9a25bb77-4b56-467b-ac0e-343420aec78a` `Original Starbucks`
+  - `Pike Place` -> `overture:9a25bb77-4b56-467b-ac0e-343420aec78a` `Original Starbucks`
+
+## 2026-04-12 Direct rate-limit and HMAC invariant coverage
+
+- Added `tests/unit/rate-limit.test.ts` to cover the three remaining rate-limit branches called out in the execution board:
+  - Upstash configured + under limit -> helper returns allowed
+  - Upstash configured + over limit -> helper returns blocked, and `/api/codes` maps that branch to the expected `429` response
+  - Upstash absent -> helper exercises the indexed Supabase fallback path and returns the fallback-derived allowance state
+- Extended `tests/unit/security-invariants.test.ts` with direct `hashDeviceId` assertions:
+  - a pinned deterministic HMAC fixture for a known UUID input + secret
+  - an invariant that the raw device ID never appears in the persisted hash output
+- Verification:
+  - `npm run test` -> `93/93` across `11` files
+  - `npx tsc --noEmit` -> pass
+  - `npm run lint` -> pass
+  - `npm run build` -> pass
+- Result: the backend checklist is now closed on direct automated evidence for rate-limit branching and device-ID hashing, not just live-behavior inference.
 
 ## Open Items
 

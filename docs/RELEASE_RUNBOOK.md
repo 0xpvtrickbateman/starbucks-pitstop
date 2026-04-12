@@ -1,6 +1,6 @@
 # Starbucks Pitstop — Release Runbook
 
-> **Maintenance notice:** This runbook must be updated whenever deploy tooling, hosting, or critical API paths change. Last updated: 2026-04-10.
+> **Maintenance notice:** This runbook must be updated whenever deploy tooling, hosting, or critical API paths change. Last updated: 2026-04-12.
 
 ---
 
@@ -27,7 +27,7 @@ Before triggering a deploy, confirm the following local gates are green on the r
 ```bash
 npm run lint          # ESLint — must exit 0
 npx tsc --noEmit     # TypeScript type check — must exit 0
-npm run test         # Vitest — must report 87 tests across 10 files passing
+npm run test         # Vitest — must report 93 tests across 11 files passing
 npm run build        # Next.js production build — must exit 0
 ```
 
@@ -52,6 +52,8 @@ Migrations in `supabase/migrations/`:
 | `20260410170000_fix_rpc_variable_conflicts.sql` | `#variable_conflict use_column` fix in PL/pgSQL functions |
 | `20260410180000_rate_limit_fallback_indexes.sql` | Composite indexes for DB rate-limit fallback |
 | `20260410180500_search_stores_deterministic_order.sql` | Deterministic ordering in search RPC |
+| `20260412010000_security_invoker_and_search_path_hardening.sql` | Switch views/RPCs to invoker semantics and pin `search_path` |
+| `20260412141000_search_stores_multi_field_tokens.sql` | Multi-field search tokenization in SQL RPC |
 
 ### Environment variables
 

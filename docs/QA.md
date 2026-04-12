@@ -1,6 +1,6 @@
 # QA Log
 
-Last updated: 2026-04-12 14:00 MST
+Last updated: 2026-04-12 14:33 MST
 
 ## Status: Production-ready
 
@@ -85,6 +85,22 @@ All automated checks pass, all critical code-level bugs have been fixed, live Su
   - `Pike Place` -> first hit `overture:9a25bb77-4b56-467b-ac0e-343420aec78a` `Original Starbucks`
 - Conclusion: Item C is closed. Multi-field search is now a shipped capability, not an open limitation.
 
+### 2026-04-12 Direct rate-limit + HMAC invariant coverage
+
+- Added `tests/unit/rate-limit.test.ts` for the three backend rate-limit branches that were still open on the execution board:
+  - Upstash configured + under limit -> `enforceRateLimit` returns `ok: true`
+  - Upstash configured + over limit -> `enforceRateLimit` returns `ok: false`, and `/api/codes` returns the expected `429` body
+  - Upstash absent -> the helper falls through to the indexed Supabase count path and returns the fallback-derived result
+- Extended `tests/unit/security-invariants.test.ts` with direct `hashDeviceId` assertions:
+  - deterministic HMAC fixture pinned for a known UUID input + secret
+  - raw device ID never appears inside the hashed output
+- Local verification:
+  - `npm run test` -> `93/93`
+  - `npx tsc --noEmit` -> pass
+  - `npm run lint` -> pass
+  - `npm run build` -> pass
+- Conclusion: the remaining backend-security checklist items are now closed by direct unit coverage instead of code inspection or runtime inference alone.
+
 ### 2026-04-10 second-pass remediation (after code review)
 
 A second review surfaced six additional issues. All fixed and reverified:
@@ -132,7 +148,7 @@ Performance improved from 35 -> 59 versus the first preview, primarily due to th
 - `npm run build`
   - passed on 2026-04-09
 - `npm run test`
-  - passed on 2026-04-12 — 87 tests across 10 files, including the 27 cases added in the Wave 1 security-invariants pass and the new search-route coverage
+  - passed on 2026-04-12 — 93 tests across 11 files, including the 27 cases added in the Wave 1 security-invariants pass, the search-route coverage, and the direct rate-limit / `hashDeviceId` invariant tests
   - includes targeted coverage added during the 2026-04-09 remediation pass:
     - search safety: commas, parentheses, quotes, percent signs, backslashes, mixed punctuation (10 tests)
     - store query behavior: bbox filtering, radius ordering, limit enforcement (8 tests)

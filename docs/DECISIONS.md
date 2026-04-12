@@ -1,6 +1,6 @@
 # Decisions Log
 
-Last updated: 2026-04-11 MST
+Last updated: 2026-04-12 MST
 
 ## 2026-04-08: Use the official Starbucks locator as the primary ingestion source
 
@@ -433,6 +433,33 @@ Verification:
   - `WA`
   - `85016`
   - `Pike Place`
+
+## 2026-04-12: Release coordinator — lock rate-limit branching and HMAC hashing with direct tests
+
+Decision:
+
+- Add direct automated coverage for the remaining backend-security gaps instead of leaving them implied by runtime behavior alone.
+- Cover `enforceRateLimit` in all three meaningful branches:
+  - Upstash configured + under limit
+  - Upstash configured + over limit
+  - Upstash absent + indexed Supabase fallback
+- Pin `hashDeviceId` with a deterministic HMAC fixture and assert that the raw device ID never appears in the stored hash output.
+
+Why:
+
+- The production proof for Item A established that write throttling works, but it did not by itself prove which helper branch was being exercised in every configuration.
+- The code path for device hashing had been verified by live behavior and code inspection, but not by a direct unit test that would fail if the hashing implementation changed.
+- These are small, high-leverage tests on a sensitive surface: they make future refactors safer without changing runtime behavior.
+
+Tradeoff:
+
+- The suite now includes one additional unit-test file dedicated to the rate-limit surface, so the baseline moved from `87/10` to `93/11`.
+- The tests intentionally mock only the Upstash SDK boundary. Config parsing and the route's `429` mapping remain exercised through the real app code.
+
+Verification:
+
+- `npm run test` passed at **93 tests across 11 files**.
+- `npm run lint`, `npx tsc --noEmit`, and `npm run build` all passed unchanged.
 
 ## Pending
 

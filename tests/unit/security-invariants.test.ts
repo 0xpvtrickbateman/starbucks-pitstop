@@ -8,11 +8,11 @@
  *   - Submission schemas reject malformed or oversized inputs.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 // ---- helpers we own ---- //
-import { normalizeCodeInput } from "@/lib/crypto";
+import { hashDeviceId, normalizeCodeInput } from "@/lib/crypto";
 import { ApiClientError, apiErrorResponse } from "@/lib/api-errors";
 import {
   sanitizeSearchQuery,
@@ -25,17 +25,41 @@ import {
 // HMAC / device-id hashing (invariant 3)
 // ---------------------------------------------------------------------------
 describe("device-id hashing (invariant 3)", () => {
-  it("normalizeCodeInput never returns the raw device id (sanity-check the import path)", () => {
-    // The real hashDeviceId needs RATE_LIMIT_SECRET, which is not set in the
-    // test environment. We verify the adjacent normalizeCodeInput to confirm
-    // the crypto module loads correctly and does not accidentally return the
-    // raw input as-is.
+  const originalRateLimitSecret = process.env.RATE_LIMIT_SECRET;
+
+  afterEach(() => {
+    if (originalRateLimitSecret === undefined) {
+      delete process.env.RATE_LIMIT_SECRET;
+      return;
+    }
+
+    process.env.RATE_LIMIT_SECRET = originalRateLimitSecret;
+  });
+
+  it("hashDeviceId returns a deterministic HMAC fixture", () => {
+    process.env.RATE_LIMIT_SECRET = "test-rate-limit-secret-1234";
+
+    expect(hashDeviceId("00000000-0000-0000-0000-000000000123")).toBe(
+      "6bf2bedba9fec5759525f95af02860e81f33a67e73cb172ad121f922fb781193",
+    );
+  });
+
+  it("hashDeviceId never includes the raw device id in the hashed output", () => {
+    process.env.RATE_LIMIT_SECRET = "test-rate-limit-secret-1234";
+    const rawDeviceId = "00000000-0000-0000-0000-000000000123";
+
+    const hashed = hashDeviceId(rawDeviceId);
+
+    expect(hashed).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashed).not.toContain(rawDeviceId);
+  });
+
+  it("normalizeCodeInput still transforms user code input and never passes it through unchanged", () => {
     const raw = "my-secret-code";
     const { normalized } = normalizeCodeInput(raw);
-    // normalized is uppercased alphanumeric — it's the code, not a device id,
-    // but this confirms the crypto module is importable and transforms input.
+
     expect(normalized).toBe("MYSECRETCODE");
-    expect(normalized).not.toBe(raw); // transformed, not passed through
+    expect(normalized).not.toBe(raw);
   });
 
   it("codeSubmissionSchema requires a valid UUID for deviceId", () => {
