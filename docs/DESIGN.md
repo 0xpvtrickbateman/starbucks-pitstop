@@ -1,6 +1,15 @@
 # Starbucks Pitstop Design Research
 
-Last updated: 2026-04-08 MST
+Last updated: 2026-04-12 19:56 MST
+
+## 2026-04-12 Mobile shell behavior update
+
+- The phone detail surface is intentionally three-state now:
+  - `collapsed` shows only the bottom header rail
+  - `peek` leaves a short preview above the map instead of occupying the full viewport
+  - `open` reveals the full detail sheet
+- The map shell should keep a definite viewport-bound height chain (`dvh`-based flex sizing) instead of relying on percentage heights through `min-height` alone.
+- Reason: mobile Safari can mount a visually blank Mapbox canvas if the container size is unresolved at first paint, even when the map instance has already loaded and the store query has already succeeded.
 
 ## Scope
 

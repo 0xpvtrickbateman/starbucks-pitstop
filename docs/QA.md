@@ -1,10 +1,50 @@
 # QA Log
 
-Last updated: 2026-04-12 16:57 MST
+Last updated: 2026-04-12 19:56 MST
 
 ## Status: Release candidate pending physical-device touch-map QA
 
-All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors. The only remaining release gate is a literal physical-device touch-map pass on phone hardware.
+All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors. A late 2026-04-12 mobile map-shell fix addressed a physical-iPhone blank-map report, so the remaining release gate is a rerun of the literal physical-device touch-map pass on phone hardware.
+
+### 2026-04-12 Mobile map shell regression fix
+
+- Trigger: physical iPhone screenshots showed the onboarding sheet covering the full viewport on first load and a blank white map canvas after collapse, even while the app reported `500 qualifying stores loaded in view`.
+- Root cause:
+  - `panelMode: "peek"` still rendered as a fully open mobile sheet
+  - the mobile map shell relied on percentage heights through a `min-height` chain, so Mapbox could load against an unstable container size and require an explicit re-layout
+- Fixes:
+  - added explicit sheet-state transforms in `src/components/layout/MobileSheet.tsx`
+  - tightened the page flex-height chain in `src/components/home/PitstopShell.tsx`
+  - added load-time / sheet-state / resize-observer `map.resize()` refreshes in `src/components/map/StoreMap.tsx`
+  - added `tests/unit/mobile-sheet-state.test.ts` so `peek` cannot regress back into `open`
+- Local verification:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run test` -> `100/100`
+  - `npm run test:e2e` -> `6/6`
+  - `npm run build` -> pass
+- Environment note: Codex's Playwright MCP browser could not be used for this pass because it tried to create `/.playwright-mcp` on a read-only filesystem. Browser smoke therefore used the repo's own Playwright CLI instead.
+- Remaining gate: rerun the physical-device Safari flow for first paint, collapse/expand, pinch/pan, and tap-pin behavior.
+
+### 2026-04-12 Low-zoom map load shedding for iPhone crash reports
+
+- Trigger: after the sheet/layout regression was fixed, physical iPhone usage still produced Safari's browser-level `This page couldn't load` error when tapping map clusters or pins.
+- Concrete load pattern found during investigation:
+  - on first paint the map started with a radius query
+  - once bounds were emitted, the shell immediately switched to a nationwide `bbox` request
+  - that bbox path was capped at `500` stores even while the viewport was still at the default U.S.-wide zoom
+- Fix:
+  - added `src/lib/store-load-strategy.ts`
+  - defer bbox-driven map hydration until zoom `>= 6`
+  - lower bbox cap from `500` to `200`
+  - preserve an already-selected store while low-zoom loading is deferred so search/detail flows still work
+- Automated verification:
+  - `npm run test` -> `100/100`
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+  - local mobile-browser smoke showed the initial status staying in a zoom-in-needed state instead of loading `500` in-view stores; after four zoom-in taps the app switched into bbox mode with `limit=200`
+- Remaining gate: rerun the literal iPhone tap flow on a deployed build. This change removes the strongest verified mobile-Safari stressor, but it still needs confirmation on real hardware.
 
 ### 2026-04-10 Wave 2 canonical-host verification
 

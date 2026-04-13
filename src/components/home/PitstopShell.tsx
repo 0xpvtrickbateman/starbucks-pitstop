@@ -7,6 +7,7 @@ import { SearchBar } from "@/components/layout/SearchBar";
 import { MapControls } from "@/components/map/MapControls";
 import { StoreDetailPanel } from "@/components/store/StoreDetailPanel";
 import { getOrCreateDeviceId } from "@/lib/device-id";
+import { getStoreLoadStrategy } from "@/lib/store-load-strategy";
 import type {
   StoreDetailData,
   StoreSummary,
@@ -155,17 +156,25 @@ async function loadStores(viewport: {
   longitude: number;
   zoom: number;
 }, bbox: string | null) {
+  const strategy = getStoreLoadStrategy(viewport, bbox);
+
+  if (strategy.mode === "deferred") {
+    return {
+      stores: [] as StoreDetailData[],
+      mode: strategy.mode,
+    };
+  }
+
   const url = new URL("/api/locations", window.location.origin);
 
-  if (bbox) {
-    url.searchParams.set("bbox", bbox);
-    url.searchParams.set("limit", "500");
+  if (strategy.mode === "bbox") {
+    url.searchParams.set("bbox", strategy.query.bbox);
+    url.searchParams.set("limit", String(strategy.query.limit));
   } else {
-    const radius = Math.max(2, Math.min(25, Math.round(18 - viewport.zoom)));
-    url.searchParams.set("lat", viewport.latitude.toFixed(5));
-    url.searchParams.set("lng", viewport.longitude.toFixed(5));
-    url.searchParams.set("radius", String(radius));
-    url.searchParams.set("limit", "100");
+    url.searchParams.set("lat", strategy.query.latitude.toFixed(5));
+    url.searchParams.set("lng", strategy.query.longitude.toFixed(5));
+    url.searchParams.set("radius", String(strategy.query.radius));
+    url.searchParams.set("limit", String(strategy.query.limit));
   }
 
   const response = await fetch(url, { cache: "no-store" });
@@ -181,10 +190,16 @@ async function loadStores(viewport: {
   }
 
   if (!("stores" in payload) || !Array.isArray(payload.stores)) {
-    return [] as StoreDetailData[];
+    return {
+      stores: [] as StoreDetailData[],
+      mode: strategy.mode,
+    };
   }
 
-  return payload.stores.map(toStoreDetail);
+  return {
+    stores: payload.stores.map(toStoreDetail),
+    mode: strategy.mode,
+  };
 }
 
 async function geocodeSearch(query: string) {
@@ -301,7 +316,7 @@ export function PitstopShell() {
     const timeout = window.setTimeout(async () => {
       setLoadStatus("loading");
       try {
-        const nextStores = await loadStores(
+        const { stores: nextStores, mode } = await loadStores(
           {
             latitude: viewportLatitude,
             longitude: viewportLongitude,
@@ -311,6 +326,17 @@ export function PitstopShell() {
         );
 
         if (!active) {
+          return;
+        }
+
+        if (mode === "deferred") {
+          setStores((current) =>
+            selectedStoreId
+              ? current.filter((store) => store.id === selectedStoreId)
+              : [],
+          );
+          setLoadStatus("ready");
+          setSearchStatus("Zoom in to load stores across the visible map.");
           return;
         }
 
@@ -335,10 +361,16 @@ export function PitstopShell() {
         setLoadStatus("ready");
 
         if (nextStores.length === 0 && !selectedStoreId) {
-          setSearchStatus("No qualifying stores are loaded in this view yet.");
+          setSearchStatus(
+            mode === "bbox"
+              ? "No qualifying stores are loaded in this view yet."
+              : "No nearby qualifying stores are loaded yet.",
+          );
         } else if (nextStores.length > 0) {
           setSearchStatus(
-            `${nextStores.length} qualifying store${nextStores.length === 1 ? "" : "s"} loaded in view.`,
+            mode === "bbox"
+              ? `${nextStores.length} qualifying store${nextStores.length === 1 ? "" : "s"} loaded in view.`
+              : `${nextStores.length} nearby qualifying store${nextStores.length === 1 ? "" : "s"} loaded.`,
           );
         }
       } catch (error) {
@@ -592,12 +624,12 @@ export function PitstopShell() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-dvh min-h-dvh flex-col">
       <Navbar />
 
-      <main className="relative flex-1 overflow-hidden">
-        <div className="mx-auto flex h-full w-full max-w-[1600px] flex-col gap-4 px-[var(--space-page)] pb-[var(--space-page)] pt-4 lg:flex-row">
-          <section className="flex min-w-0 flex-1 flex-col gap-4">
+      <main className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-4 px-[var(--space-page)] pb-[var(--space-page)] pt-4 lg:flex-row">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
             <div className="space-y-3">
               <SearchBar
                 value={searchQuery}
@@ -627,7 +659,7 @@ export function PitstopShell() {
               </div>
             </div>
 
-            <div className="relative flex-1">
+            <div className="relative min-h-0 flex-1">
               <div className="absolute inset-0 rounded-[2rem] bg-[linear-gradient(180deg,rgba(31,74,61,0.03),transparent_42%)]" />
               <StoreMap
                 stores={stores}
@@ -635,12 +667,15 @@ export function PitstopShell() {
                 viewport={viewport}
                 onViewportChange={setViewport}
                 onBoundsChange={setBoundsQuery}
+                panelMode={panelMode}
                 onStoreSelect={(storeId) => {
                   setSelectedStoreId(storeId);
                   setPanelMode("open");
                 }}
                 onViewportCommit={() => {
-                  setPanelMode("peek");
+                  if (!selectedStoreId) {
+                    setPanelMode("peek");
+                  }
                 }}
                 onMapReady={() => {
                   setPanelMode("peek");
@@ -698,6 +733,7 @@ export function PitstopShell() {
       <StoreDetailPanel
         store={selectedStore}
         open={panelMode !== "collapsed"}
+        sheetState={panelMode}
         variant="sheet"
         onSubmitCode={submitCode}
         onVote={voteOnCode}

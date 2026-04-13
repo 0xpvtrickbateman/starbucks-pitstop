@@ -2,7 +2,10 @@
 
 import { Clock3, MapPinned, ShieldAlert } from "lucide-react";
 import { useState } from "react";
-import { MobileSheet } from "@/components/layout/MobileSheet";
+import {
+  MobileSheet,
+  type MobileSheetState,
+} from "@/components/layout/MobileSheet";
 import type { StoreDetailData } from "@/components/home/types";
 import { CodeDisplay } from "@/components/store/CodeDisplay";
 import { CodeSubmitForm } from "@/components/store/CodeSubmitForm";
@@ -13,6 +16,7 @@ import { cn } from "@/components/utils/cn";
 interface StoreDetailPanelProps {
   store: StoreDetailData | null;
   open: boolean;
+  sheetState?: MobileSheetState;
   variant: "sheet" | "sidebar";
   onSubmitCode?: (code: string) => string | void | Promise<string | void>;
   onVote?: (
@@ -188,6 +192,7 @@ function PanelContent({
 export function StoreDetailPanel({
   store,
   open,
+  sheetState = open ? "open" : "collapsed",
   variant,
   onSubmitCode,
   onVote,
@@ -201,7 +206,7 @@ export function StoreDetailPanel({
   if (variant === "sheet") {
     return (
       <MobileSheet
-        open={open}
+        state={sheetState}
         title={store?.name ?? "Find a Starbucks"}
         subtitle={store ? "Selected location" : "Start nearby"}
         onToggle={onToggle}

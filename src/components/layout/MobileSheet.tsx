@@ -3,8 +3,22 @@
 import { ChevronDown, PanelTopClose } from "lucide-react";
 import { cn } from "@/components/utils/cn";
 
+export type MobileSheetState = "peek" | "open" | "collapsed";
+
+export function getMobileSheetPositionClass(state: MobileSheetState) {
+  if (state === "open") {
+    return "translate-y-0";
+  }
+
+  if (state === "peek") {
+    return "translate-y-[calc(100%-14rem)] sm:translate-y-[calc(100%-16rem)]";
+  }
+
+  return "translate-y-[calc(100%-4.25rem)]";
+}
+
 interface MobileSheetProps {
-  open: boolean;
+  state: MobileSheetState;
   title: string;
   subtitle?: string;
   onToggle?: () => void;
@@ -14,7 +28,7 @@ interface MobileSheetProps {
 }
 
 export function MobileSheet({
-  open,
+  state,
   title,
   subtitle,
   onToggle,
@@ -27,7 +41,7 @@ export function MobileSheet({
       <section
         className={cn(
           "fixed inset-x-0 bottom-0 z-50 mx-auto max-w-[1600px] px-3 pb-3 pt-0 transition-transform duration-300 ease-out",
-          open ? "translate-y-0" : "translate-y-[calc(100%-4.25rem)]",
+          getMobileSheetPositionClass(state),
           className,
         )}
       >
@@ -36,13 +50,13 @@ export function MobileSheet({
             <button
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-brand-primary/10 bg-white/80 text-text-secondary transition hover:bg-white hover:text-brand-primary-dark"
-              aria-label={open ? "Collapse details" : "Expand details"}
+              aria-label={state === "open" ? "Collapse details" : "Expand details"}
               onClick={onToggle ?? onClose}
             >
               <ChevronDown
                 className={cn(
                   "h-4 w-4 transition-transform",
-                  open && "rotate-180",
+                  state === "open" && "rotate-180",
                 )}
               />
             </button>

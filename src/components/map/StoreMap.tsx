@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Feature, Point } from "geojson";
 import Supercluster from "supercluster";
 import Map, { Marker, type MapRef } from "react-map-gl/mapbox";
@@ -9,7 +9,7 @@ import { MapPin, Sparkles } from "lucide-react";
 import type { StoreSummary, StoreCodeHealth } from "@/components/home/types";
 import { StoreCluster } from "@/components/map/StoreCluster";
 import { StoreMarker } from "@/components/map/StoreMarker";
-import type { MapViewport } from "@/stores/mapStore";
+import type { MapPanelMode, MapViewport } from "@/stores/mapStore";
 
 interface StoreMapProps {
   stores: StoreSummary[];
@@ -20,6 +20,7 @@ interface StoreMapProps {
   onBoundsChange?: (bbox: string) => void;
   onViewportCommit?: (viewport: Partial<MapViewport>) => void;
   onMapReady?: () => void;
+  panelMode?: MapPanelMode;
   mapboxToken?: string;
 }
 
@@ -42,6 +43,40 @@ type MapFeature = Feature<
 >;
 
 type StorePointFeature = Feature<Point, StoreFeatureProps>;
+
+function emitBoundsQuery(
+  map: MapRef | null,
+  onBoundsChange?: (bbox: string) => void,
+) {
+  const bounds = map?.getBounds();
+
+  if (!bounds || !onBoundsChange) {
+    return;
+  }
+
+  onBoundsChange(
+    [
+      bounds.getWest(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getNorth(),
+    ]
+      .map((value) => value.toFixed(6))
+      .join(","),
+  );
+}
+
+function refreshMapLayout(
+  map: MapRef | null,
+  onBoundsChange?: (bbox: string) => void,
+) {
+  if (!map) {
+    return;
+  }
+
+  map.resize();
+  emitBoundsQuery(map, onBoundsChange);
+}
 
 function isClusterFeature(
   feature: MapFeature,
@@ -165,9 +200,12 @@ export function StoreMap({
   onBoundsChange,
   onViewportCommit,
   onMapReady,
+  panelMode,
   mapboxToken,
 }: StoreMapProps) {
   const mapRef = useRef<MapRef | null>(null);
+  const mapShellRef = useRef<HTMLDivElement | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const clusterIndex = useMemo(() => {
     const index = new Supercluster<StoreFeatureProps, ClusterFeatureProps>({
       radius: 54,
@@ -194,6 +232,52 @@ export function StoreMap({
     return clusterIndex.getClusters(bounds, Math.max(0, Math.round(viewport.zoom))) as MapFeature[];
   }, [clusterIndex, viewport.zoom, viewport.latitude, viewport.longitude]);
 
+  useEffect(() => {
+    if (!mapboxToken) {
+      return;
+    }
+
+    let frameId = 0;
+    let timeoutId = 0;
+
+    frameId = window.requestAnimationFrame(() => {
+      refreshMapLayout(mapRef.current, onBoundsChange);
+    });
+    timeoutId = window.setTimeout(() => {
+      refreshMapLayout(mapRef.current, onBoundsChange);
+    }, 180);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [mapboxToken, onBoundsChange, panelMode]);
+
+  useEffect(() => {
+    if (
+      !mapboxToken ||
+      typeof ResizeObserver === "undefined" ||
+      !mapShellRef.current
+    ) {
+      return;
+    }
+
+    let frameId = 0;
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        refreshMapLayout(mapRef.current, onBoundsChange);
+      });
+    });
+
+    observer.observe(mapShellRef.current);
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [mapboxToken, onBoundsChange]);
+
   if (!mapboxToken) {
     return stores.length > 0 ? (
       <MissingTokenFrame stores={stores} onStoreSelect={onStoreSelect} />
@@ -204,27 +288,11 @@ export function StoreMap({
 
   const mapStyle = "mapbox://styles/mapbox/light-v11";
 
-  const emitBounds = () => {
-    const bounds = mapRef.current?.getBounds();
-
-    if (!bounds || !onBoundsChange) {
-      return;
-    }
-
-    onBoundsChange(
-      [
-        bounds.getWest(),
-        bounds.getSouth(),
-        bounds.getEast(),
-        bounds.getNorth(),
-      ]
-        .map((value) => value.toFixed(6))
-        .join(","),
-    );
-  };
-
   return (
-    <div className="relative h-full min-h-[48rem] overflow-hidden rounded-[2rem] border border-white/50 bg-surface-elevated">
+    <div
+      ref={mapShellRef}
+      className="relative h-full min-h-[48rem] overflow-hidden rounded-[2rem] border border-white/50 bg-surface-elevated"
+    >
       <Map
         ref={mapRef}
         mapboxAccessToken={mapboxToken}
@@ -236,11 +304,18 @@ export function StoreMap({
         }}
         onMoveEnd={(event) => {
           onViewportCommit?.(event.viewState as MapViewport & { padding?: PaddingOptions });
-          emitBounds();
+          emitBoundsQuery(mapRef.current, onBoundsChange);
         }}
         onLoad={() => {
+          setMapLoaded(true);
           onMapReady?.();
-          emitBounds();
+          refreshMapLayout(mapRef.current, onBoundsChange);
+          window.requestAnimationFrame(() => {
+            refreshMapLayout(mapRef.current, onBoundsChange);
+          });
+          window.setTimeout(() => {
+            refreshMapLayout(mapRef.current, onBoundsChange);
+          }, 180);
         }}
         dragRotate={false}
         pitchWithRotate={false}
@@ -248,56 +323,58 @@ export function StoreMap({
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}
       >
-        {clusterFeatures.map((feature) => {
-          const [longitude, latitude] = feature.geometry.coordinates;
-          if (isClusterFeature(feature)) {
-            return (
-              <Marker
-                key={`cluster-${feature.properties.cluster_id}`}
-                longitude={longitude}
-                latitude={latitude}
-                anchor="center"
-              >
-                <StoreCluster
-                  pointCount={feature.properties.point_count}
-                  onClick={() => {
-                    const expansionZoom = Math.min(
-                      clusterIndex.getClusterExpansionZoom(
-                        feature.properties.cluster_id,
-                      ),
-                      18,
-                    );
-                    onViewportChange({
-                      ...viewport,
-                      latitude,
-                      longitude,
-                      zoom: expansionZoom,
-                    });
-                  }}
-                />
-              </Marker>
-            );
-          }
+        {mapLoaded
+          ? clusterFeatures.map((feature) => {
+              const [longitude, latitude] = feature.geometry.coordinates;
+              if (isClusterFeature(feature)) {
+                return (
+                  <Marker
+                    key={`cluster-${feature.properties.cluster_id}`}
+                    longitude={longitude}
+                    latitude={latitude}
+                    anchor="center"
+                  >
+                    <StoreCluster
+                      pointCount={feature.properties.point_count}
+                      onClick={() => {
+                        const expansionZoom = Math.min(
+                          clusterIndex.getClusterExpansionZoom(
+                            feature.properties.cluster_id,
+                          ),
+                          18,
+                        );
+                        onViewportChange({
+                          ...viewport,
+                          latitude,
+                          longitude,
+                          zoom: expansionZoom,
+                        });
+                      }}
+                    />
+                  </Marker>
+                );
+              }
 
-          return (
-            <Marker
-              key={(feature.properties as StoreFeatureProps).storeId}
-              longitude={longitude}
-              latitude={latitude}
-              anchor="bottom"
-            >
-              <StoreMarker
-                health={(feature.properties as StoreFeatureProps).health}
-                selected={
-                  selectedStoreId === (feature.properties as StoreFeatureProps).storeId
-                }
-                onClick={() =>
-                  onStoreSelect((feature.properties as StoreFeatureProps).storeId)
-                }
-              />
-            </Marker>
-          );
-        })}
+              return (
+                <Marker
+                  key={(feature.properties as StoreFeatureProps).storeId}
+                  longitude={longitude}
+                  latitude={latitude}
+                  anchor="bottom"
+                >
+                  <StoreMarker
+                    health={(feature.properties as StoreFeatureProps).health}
+                    selected={
+                      selectedStoreId === (feature.properties as StoreFeatureProps).storeId
+                    }
+                    onClick={() =>
+                      onStoreSelect((feature.properties as StoreFeatureProps).storeId)
+                    }
+                  />
+                </Marker>
+              );
+            })
+          : null}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-24 bg-gradient-to-b from-white/60 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-white/65 to-transparent" />

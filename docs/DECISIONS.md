@@ -1,6 +1,27 @@
 # Decisions Log
 
-Last updated: 2026-04-12 MST
+Last updated: 2026-04-12 19:56 MST
+
+## 2026-04-12: Represent the mobile detail sheet as explicit `peek` / `open` / `collapsed` states and actively resize Mapbox
+
+Decision:
+
+- Stop collapsing the mobile detail-sheet state down to a boolean.
+- Keep a definite viewport-bound height chain in the mobile shell.
+- Trigger `map.resize()` on initial map load, on mobile sheet state changes, and when the map container itself resizes.
+
+Why:
+
+- The bug report showed two coupled failures on iPhone:
+  - first load: the onboarding sheet occupied the whole viewport because `peek` rendered the same as `open`
+  - after collapse: the data layer loaded, but the map canvas stayed blank because Mapbox had initialized against an unstable mobile container size
+- Treating the sheet as a real three-state surface fixes the onboarding/visibility problem.
+- Forcing Mapbox to re-layout on load and resize events addresses the Safari blank-canvas case without changing the server data contract.
+
+Tradeoff:
+
+- The shell now has slightly tighter coordination between `PitstopShell`, `StoreDetailPanel`, `MobileSheet`, and `StoreMap`.
+- Selected-store flows now stay open across viewport commits instead of always snapping back to `peek`, which is a better fit for the current search-first detail UX and matches the existing end-to-end tests.
 
 ## 2026-04-08: Use the official Starbucks locator as the primary ingestion source
 
@@ -460,6 +481,35 @@ Verification:
 
 - `npm run test` passed at **93 tests across 11 files**.
 - `npm run lint`, `npx tsc --noEmit`, and `npm run build` all passed unchanged.
+
+## 2026-04-12: Release coordinator — defer nationwide bbox hydration until the user zooms in
+
+Decision:
+
+- Add an explicit store-load strategy for the home map.
+- Keep the initial low-zoom state lightweight by deferring nationwide `bbox` hydration until zoom `>= 6`.
+- When bbox mode is active, reduce the cap from `500` stores to `200`.
+
+Why:
+
+- A physical iPhone report showed Safari hitting the browser-level `This page couldn't load` screen when tapping clusters or pins.
+- Investigation found one concrete pressure spike in the current shell: after first paint, the map immediately escalated from the initial radius query into a U.S.-wide bbox request capped at `500` stores, even before the user had zoomed into a city.
+- That low-zoom nationwide load is unnecessary for map-first use. The user cannot act meaningfully on a U.S.-wide viewport, but mobile Safari still has to absorb the data load, clustering work, and follow-on rerenders when the first tap happens.
+
+Tradeoff:
+
+- At very low zoom, the app now shows a `Zoom in to load stores across the visible map.` state instead of preloading the entire visible bbox.
+- This is a deliberate prioritization of mobile stability over early nationwide density. Search, near-me, and an already-selected store still work while low-zoom bbox loading is deferred.
+
+Verification:
+
+- Added `src/lib/store-load-strategy.ts` and `tests/unit/store-load-strategy.test.ts`.
+- `npm run test` passed at **100 tests across 13 files**.
+- `npm run lint`, `npx tsc --noEmit`, and `npm run build` all passed.
+- Local mobile-browser smoke on the updated app showed:
+  - initial load no longer jumping to `500 qualifying stores loaded in view`
+  - low zoom staying in a zoom-in-needed state
+  - bbox mode activating only after four zoom-in taps, with `limit=200`
 
 ## Pending
 

@@ -1,10 +1,43 @@
 # Build Status
 
-Last updated: 2026-04-12 16:57 MST
+Last updated: 2026-04-12 19:56 MST
 
-## Current State: Release candidate pending physical-device touch-map QA
+## Current State: Release candidate pending rerun of physical-device touch-map QA
 
-The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The canonical-host redirect is gone, the production URL now returns `HTTP/2 200`, and the browser/production evidence is strong. The one remaining release gate is a literal physical-device touch-map pass on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The canonical-host redirect is gone, the production URL now returns `HTTP/2 200`, and the browser/production evidence is strong. A late 2026-04-12 mobile map-shell regression fix landed after new iPhone screenshots showed a hidden/blank map despite successful data loads, so the one remaining release gate is now a rerun of the literal physical-device touch-map pass on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+
+## 2026-04-12 Mobile map shell stabilization
+
+- Root cause 1: the mobile sheet had three logical states in store (`peek`, `open`, `collapsed`) but the rendered sheet still accepted a boolean `open`, so `peek` behaved like fully open and hid the map on first load.
+- Root cause 2: the map shell depended on percentage heights through a `min-height` chain. On mobile Safari, Mapbox could finish `onLoad` and emit bounds while its canvas still had an unstable size, which explains the blank white map after collapsing the sheet even though `500 qualifying stores loaded in view` had already been fetched.
+- Fixes shipped:
+  - `src/components/layout/MobileSheet.tsx` now models `peek`, `open`, and `collapsed` as distinct transforms.
+  - `src/components/home/PitstopShell.tsx` now gives the shell a definite `h-dvh` / `min-h-0` flex-height chain and preserves selected-store detail flows instead of auto-peeking them on every viewport commit.
+  - `src/components/map/StoreMap.tsx` now forces `map.resize()` on initial load, on sheet-state changes, and when a `ResizeObserver` sees container-size changes.
+- Automated verification completed locally:
+  - `npm run lint`
+  - `npx tsc --noEmit`
+  - `npm run test` -> `100/100`
+
+## 2026-04-12 Low-zoom map load shedding for iPhone crash reports
+
+- New user report after the sheet/layout fix: iPhone Safari was still hitting the browser-level "This page couldn't load" screen when tapping clusters or pins.
+- Concrete pressure point found in the live map shell: as soon as the map emitted bounds, the home page upgraded from the initial radius query into a nationwide `bbox` query with `limit=500`, even while the viewport was still at the default U.S.-wide zoom.
+- Mitigation shipped:
+  - added `src/lib/store-load-strategy.ts`
+  - defer full bbox loading until zoom `>= 6`
+  - cap bbox loads at `200` stores instead of `500`
+  - preserve a selected store while low-zoom bbox loading is deferred
+- Local verification:
+  - `npm run test` -> `100/100`
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+  - mobile browser smoke against the updated local app showed the initial state no longer jumping to `500 qualifying stores loaded in view`; after four zoom-in taps it switched into bbox mode with `limit=200`
+- Release note: this is a crash mitigation aimed at the strongest verified mobile-Safari pressure spike. The final signoff still requires rerunning the literal phone flow against a deployed build.
+  - `npm run test:e2e` -> `6/6`
+  - `npm run build`
+- Remaining gate: rerun the phone Safari touch-map checklist because this fix specifically targets the blank-canvas behavior observed on a physical iPhone.
 
 ## 2026-04-10 Canonical URL Gate Closed
 
