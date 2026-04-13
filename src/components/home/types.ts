@@ -35,3 +35,17 @@ export interface StoreDetailData extends StoreSummary {
   inactiveCodeCount?: number;
   lastUpdatedLabel?: string | null;
 }
+
+export type SearchPhase =
+  | "idle"
+  | "searching"
+  | "results"
+  | "exact"
+  | "place"
+  | "empty"
+  | "error";
+
+export interface SearchCandidate extends StoreSummary {
+  subtitle?: string;
+  badge?: string;
+}

@@ -1,10 +1,40 @@
 # QA Log
 
-Last updated: 2026-04-12 19:56 MST
+Last updated: 2026-04-12 21:46 MST
 
-## Status: Release candidate pending physical-device touch-map QA
+## Status: Local premium UX pass verified; production release candidate still pending deploy plus physical-device touch-map QA
 
-All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. The `starbucks-pitstop.vercel.app` redirect was removed in Vercel Domains settings, the production smoke suite passed on the canonical host, a warmed production Lighthouse pass reached 81/100/96/100, and browser verification succeeded at the target widths with no console errors. A late 2026-04-12 mobile map-shell fix addressed a physical-iPhone blank-map report, so the remaining release gate is a rerun of the literal physical-device touch-map pass on phone hardware.
+All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. A later local 2026-04-12 premium UX pass then reworked the home shell, search resolution, mobile sheet, location page, and map recovery states. That local UX pass is fully verified in automation and browser spot-checks. The remaining release gates are deploying it and rerunning the literal physical-device touch-map pass on phone hardware.
+
+### 2026-04-12 Premium UX remediation verification
+
+- Scope covered:
+  - compacted the first-screen home chrome so the map remains visible on phone layouts
+  - replaced the old mobile `peek` state with teaser surfaces for “start nearby” and selected-store summaries
+  - removed the duplicate fixed mobile location CTA
+  - shipped hybrid search behavior for exact vs ambiguous vs place-only results
+  - gated geolocation behind explicit user action
+  - redesigned `/location/[id]` and fixed the duplicated metadata title suffix
+  - added Mapbox failure recovery UI for blocked local origins and tile/auth errors
+- Automated verification:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run test` -> pass (`108/108` across `16` files)
+  - `npm run build` -> pass
+  - `npm run test:e2e` -> pass (`11 passed`, `1 skipped`)
+- New targeted automated coverage:
+  - `tests/unit/search-discovery.test.ts` for exact vs ambiguous search resolution
+  - `tests/unit/mobile-sheet-state.test.ts` for drag-threshold state transitions
+  - `tests/unit/location-page-metadata.test.ts` for the `/location/[id]` title fix
+  - `tests/unit/mapbox-origin.test.ts` for localhost allowlist recovery behavior
+  - `tests/e2e/app.spec.ts` for single mobile CTA visibility, ambiguous search selection, geolocation gating, submit/vote continuity, and blocked-origin recovery
+- Browser/manual spot-checks completed locally with `next start` on `127.0.0.1:3002`:
+  - widths verified: `375`, `430`, `768`, `1024`, `1440`
+  - captured both the initial home state and an ambiguous-search state (`Roosevelt`) at each width
+  - verified that phone layouts preserve more immediate map area and keep the result list inline instead of auto-jumping
+  - verified that the blocked-origin Mapbox recovery message appears intentionally on `127.0.0.1:3002`, which is expected because the local allowlist is tuned for `localhost:3000`
+- Remaining manual gap:
+  - the literal physical iPhone Safari rerun is still pending for swipe drag, pinch/pan, marker taps, and high-zoom interaction fidelity
 
 ### 2026-04-12 Mobile map shell regression fix
 

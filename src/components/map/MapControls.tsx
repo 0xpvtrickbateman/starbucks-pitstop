@@ -1,14 +1,13 @@
 "use client";
 
-import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
+import { Minus, Plus, RotateCcw } from "lucide-react";
 import { cn } from "@/components/utils/cn";
 
 interface MapControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onRecenter: () => void;
-  onNearMe: () => void;
-  nearMeStatus?: string;
+  statusText?: string;
   className?: string;
 }
 
@@ -16,8 +15,7 @@ export function MapControls({
   onZoomIn,
   onZoomOut,
   onRecenter,
-  onNearMe,
-  nearMeStatus,
+  statusText,
   className,
 }: MapControlsProps) {
   return (
@@ -55,19 +53,11 @@ export function MapControls({
           <RotateCcw className="h-4 w-4" />
           Recenter
         </button>
-        <button
-          type="button"
-          onClick={onNearMe}
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-brand-primary/15 bg-brand-primary px-4 text-[0.76rem] font-semibold text-white shadow-[0_16px_32px_rgba(22,54,46,0.18)] transition hover:-translate-y-0.5 hover:bg-brand-primary-dark"
-        >
-          <LocateFixed className="h-4 w-4" />
-          Near me
-        </button>
       </div>
 
-      {nearMeStatus ? (
+      {statusText ? (
         <p className="max-w-[13rem] rounded-full border border-white/60 bg-white/82 px-3 py-1.5 text-right text-[0.72rem] text-text-secondary shadow-[0_12px_24px_rgba(22,54,46,0.1)] backdrop-blur-md">
-          {nearMeStatus}
+          {statusText}
         </p>
       ) : null}
     </div>

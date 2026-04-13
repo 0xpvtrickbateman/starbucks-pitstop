@@ -5,10 +5,11 @@ import type { Feature, Point } from "geojson";
 import Supercluster from "supercluster";
 import Map, { Marker, type MapRef } from "react-map-gl/mapbox";
 import type { PaddingOptions } from "mapbox-gl";
-import { MapPin, Sparkles } from "lucide-react";
+import { AlertTriangle, MapPin, Sparkles } from "lucide-react";
 import type { StoreSummary, StoreCodeHealth } from "@/components/home/types";
 import { StoreCluster } from "@/components/map/StoreCluster";
 import { StoreMarker } from "@/components/map/StoreMarker";
+import { getMapboxRecoveryIssueForOrigin } from "@/lib/mapbox-origin";
 import type { MapPanelMode, MapViewport } from "@/stores/mapStore";
 
 interface StoreMapProps {
@@ -28,6 +29,7 @@ interface StoreFeatureProps {
   storeId: string;
   name: string;
   health: StoreCodeHealth;
+  activeCodeCount: number;
 }
 
 interface ClusterFeatureProps {
@@ -113,13 +115,14 @@ function mapStoresToFeatures(stores: StoreSummary[]): StorePointFeature[] {
         storeId: store.id,
         name: store.name,
         health: getHealth(store),
+        activeCodeCount: store.activeCodeCount ?? 0,
       },
     }));
 }
 
 function LoadingFrame() {
   return (
-    <div className="map-frame relative flex h-full min-h-[48rem] items-center justify-center overflow-hidden rounded-[2rem] border border-white/50">
+    <div className="map-frame relative flex h-full min-h-[24rem] items-center justify-center overflow-hidden rounded-[2rem] border border-white/50 sm:min-h-[30rem] lg:min-h-[48rem]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.88),rgba(255,255,255,0.6),rgba(255,255,255,0.24))]" />
       <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(31,74,61,0.05),transparent_45%),radial-gradient(circle_at_25%_20%,rgba(203,162,88,0.14),transparent_24%)]" />
       <div className="surface-card relative z-10 max-w-sm rounded-[2rem] px-6 py-7 text-center">
@@ -151,7 +154,7 @@ function MissingTokenFrame({
   const previewStores = stores.slice(0, 4);
 
   return (
-    <div className="map-frame relative flex h-full min-h-[48rem] items-center justify-center overflow-hidden rounded-[2rem] border border-white/50">
+    <div className="map-frame relative flex h-full min-h-[24rem] items-center justify-center overflow-hidden rounded-[2rem] border border-white/50 sm:min-h-[30rem] lg:min-h-[48rem]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(31,74,61,0.1),transparent_20%),radial-gradient(circle_at_80%_20%,rgba(203,162,88,0.12),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.76),rgba(255,255,255,0.52))]" />
       <div className="surface-card relative z-10 max-w-xl rounded-[2rem] px-6 py-7 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-primary-soft text-brand-primary-dark">
@@ -191,6 +194,52 @@ function MissingTokenFrame({
   );
 }
 
+function getStoreMarkerLabel(
+  name: string,
+  health: StoreCodeHealth,
+  activeCodeCount: number,
+) {
+  const codeSummary =
+    activeCodeCount > 0
+      ? `${activeCodeCount} active restroom code${activeCodeCount === 1 ? "" : "s"}`
+      : "no active restroom code yet";
+
+  const confidenceLabel =
+    health === "confident"
+      ? "higher confidence"
+      : health === "mixed"
+        ? "mixed confidence"
+        : "waiting for reports";
+
+  return `Open details for ${name}, ${codeSummary}, ${confidenceLabel}`;
+}
+
+function MapRecoveryCard({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-30 sm:left-4 sm:right-auto sm:top-4 sm:bottom-auto sm:max-w-[22rem]">
+      <div className="surface-card rounded-[1.6rem] px-4 py-3 text-left">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-accent/15 text-brand-primary-dark">
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="font-medium text-brand-primary-dark">{title}</p>
+            <p className="mt-1 text-[0.8rem] leading-6 text-text-secondary">
+              {body}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StoreMap({
   stores,
   selectedStoreId,
@@ -206,6 +255,14 @@ export function StoreMap({
   const mapRef = useRef<MapRef | null>(null);
   const mapShellRef = useRef<HTMLDivElement | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [recoveryIssue, setRecoveryIssue] = useState<{
+    title: string;
+    body: string;
+  } | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : getMapboxRecoveryIssueForOrigin(window.location.href),
+  );
   const clusterIndex = useMemo(() => {
     const index = new Supercluster<StoreFeatureProps, ClusterFeatureProps>({
       radius: 54,
@@ -291,7 +348,7 @@ export function StoreMap({
   return (
     <div
       ref={mapShellRef}
-      className="relative h-full min-h-[48rem] overflow-hidden rounded-[2rem] border border-white/50 bg-surface-elevated"
+      className="relative h-full min-h-[24rem] overflow-hidden rounded-[2rem] border border-white/50 bg-surface-elevated sm:min-h-[30rem] lg:min-h-[48rem]"
     >
       <Map
         ref={mapRef}
@@ -317,6 +374,15 @@ export function StoreMap({
             refreshMapLayout(mapRef.current, onBoundsChange);
           }, 180);
         }}
+        onError={() => {
+          setRecoveryIssue((current) =>
+            current ?? {
+              title: "Basemap unavailable right now",
+              body:
+                "Store pins, search, and code details still work, but the background map tiles could not load on this origin.",
+            },
+          );
+        }}
         dragRotate={false}
         pitchWithRotate={false}
         touchPitch={false}
@@ -336,6 +402,7 @@ export function StoreMap({
                   >
                     <StoreCluster
                       pointCount={feature.properties.point_count}
+                      label={`Expand cluster with ${feature.properties.point_count} qualifying stores`}
                       onClick={() => {
                         const expansionZoom = Math.min(
                           clusterIndex.getClusterExpansionZoom(
@@ -364,6 +431,11 @@ export function StoreMap({
                 >
                   <StoreMarker
                     health={(feature.properties as StoreFeatureProps).health}
+                    label={getStoreMarkerLabel(
+                      (feature.properties as StoreFeatureProps).name,
+                      (feature.properties as StoreFeatureProps).health,
+                      (feature.properties as StoreFeatureProps).activeCodeCount,
+                    )}
                     selected={
                       selectedStoreId === (feature.properties as StoreFeatureProps).storeId
                     }
@@ -385,6 +457,13 @@ export function StoreMap({
         <span className="mx-2 text-brand-primary-dark/30">•</span>
         Tappable pins, conservative filtering, and mobile-first map interactions.
       </div>
+
+      {recoveryIssue ? (
+        <MapRecoveryCard
+          title={recoveryIssue.title}
+          body={recoveryIssue.body}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,10 +1,42 @@
 # Build Status
 
-Last updated: 2026-04-12 19:56 MST
+Last updated: 2026-04-12 21:46 MST
 
-## Current State: Release candidate pending rerun of physical-device touch-map QA
+## Current State: Premium UX pass shipped locally; production release candidate still pending deploy plus physical-device touch-map QA
 
-The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the post-deploy Wave 2 verification path on `https://starbucks-pitstop.vercel.app/`. The canonical-host redirect is gone, the production URL now returns `HTTP/2 200`, and the browser/production evidence is strong. A late 2026-04-12 mobile map-shell regression fix landed after new iPhone screenshots showed a hidden/blank map despite successful data loads, so the one remaining release gate is now a rerun of the literal physical-device touch-map pass on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the earlier Wave 2 production verification path on `https://starbucks-pitstop.vercel.app/`. A broader 2026-04-12 premium UX remediation pass is now complete locally across the home shell, search flow, mobile sheet, location page, and map-failure handling. The remaining release gates are deploying that pass and rerunning the literal physical-device touch-map flow on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+
+## 2026-04-12 Premium UX remediation pass
+
+- Shipped a whole-app UX refresh without changing the store sync contract or write-security model.
+- Home shell changes:
+  - reduced first-screen chrome so mobile and desktop give more immediate map area
+  - replaced the old mobile `peek` stack with compact teaser states for “start nearby” and selected-store summaries
+  - removed the fixed bottom mobile location bar so only one location CTA is visible at a time
+  - added a visible drag handle plus swipe thresholds for `collapsed` / `peek` / `open`
+- Search and discovery changes:
+  - exact single-store matches still auto-select and recenter
+  - ambiguous store queries now render an inline result list instead of jumping to an arbitrary first hit
+  - place-only geocode fallbacks move the map but keep the panel in `peek`
+  - status feedback is now centralized for loading, no-match, and moved-map states
+- Accessibility and resilience changes:
+  - geolocation is no longer requested on mount; it is gated behind explicit user action
+  - search now has an explicit accessible label and live-status messaging
+  - markers and clusters expose descriptive labels that include store/code context
+  - global `focus-visible` styling and `prefers-reduced-motion` handling were added
+  - Mapbox-origin and tile/auth failures now show an intentional recovery surface, including the known localhost-non-`3000` allowlist case
+- Standalone store page changes:
+  - `/location/[id]` metadata title no longer duplicates the site suffix
+  - the page was redesigned to match the premium shell while staying read-only
+- Verification completed for the UX pass:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run test` -> pass (`108/108`)
+  - `npm run build` -> pass
+  - `npm run test:e2e` -> pass (`11 passed`, `1 skipped`)
+  - local browser spot-checks captured the home state and ambiguous-search state at `375`, `430`, `768`, `1024`, and `1440` widths
+- Remaining manual gate:
+  - rerun the literal physical iPhone Safari pass for sheet drag, pinch/pan, pin taps, and high-zoom map interaction after deployment
 
 ## 2026-04-12 Mobile map shell stabilization
 

@@ -1,6 +1,75 @@
 # Decisions Log
 
-Last updated: 2026-04-12 19:56 MST
+Last updated: 2026-04-12 21:46 MST
+
+## 2026-04-12: Use hybrid search resolution instead of always auto-selecting the first result
+
+Decision:
+
+- Keep the existing search source order: local matches, `/api/search`, then geocoded place fallback.
+- Auto-select only when there is one clear store result.
+- When multiple plausible store results remain, render an explicit result list and wait for user selection.
+- When the only useful fallback is a place geocode, move the map but do not auto-open a store.
+
+Why:
+
+- The old flow optimized for speed, but it could recenter to the wrong store and feel arbitrary on ambiguous searches such as corridor, neighborhood, or street-name queries.
+- The product is map-first, so “move the map to a place” and “open a specific store” should be treated as different outcomes.
+
+Tradeoff:
+
+- Ambiguous searches add one extra tap.
+- The result is more trustworthy and easier to understand than silently choosing `results[0]`.
+
+## 2026-04-12: Gate geolocation behind explicit user intent
+
+Decision:
+
+- Stop requesting browser geolocation on page mount.
+- Request location only from an explicit user-triggered CTA.
+
+Why:
+
+- Automatic location prompts create a harsher first impression, especially on mobile.
+- The app already works without precise location because map browsing and search are first-class flows.
+
+Tradeoff:
+
+- Nearby recentering becomes opt-in instead of automatic.
+- The first paint feels calmer, more premium, and more respectful of user trust.
+
+## 2026-04-12: Surface local Mapbox-origin failures as a first-class recovery state
+
+Decision:
+
+- Detect known local/preview Mapbox allowlist failures and tile/auth load failures.
+- Render an intentional recovery card with a concrete explanation instead of a silent blank basemap.
+
+Why:
+
+- Local verification had a repeatable failure mode on origins like `127.0.0.1:3002`: controls and data loaded, but the basemap could look broken because the token allowlist expected `localhost:3000`.
+- Silent failure looks like an app regression when the real problem is environment configuration.
+
+Tradeoff:
+
+- The map shell carries a little more client state.
+- In return, local and preview behavior is diagnosable and much less confusing.
+
+## 2026-04-12: Keep the mobile sheet teaser intentionally compact
+
+Decision:
+
+- Use a compact mobile `peek` state that shows one summary surface and one primary action rather than stacking the full detail panel by default.
+
+Why:
+
+- The earlier mobile first paint was too chrome-heavy and hid too much of the actual map.
+- The product earns trust faster when the map is visible immediately and detail is progressively revealed.
+
+Tradeoff:
+
+- Some secondary details move one gesture deeper into `open`.
+- The mobile shell feels lighter, more premium, and more clearly map-first.
 
 ## 2026-04-12: Represent the mobile detail sheet as explicit `peek` / `open` / `collapsed` states and actively resize Mapbox
 

@@ -1,14 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Compass, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { SearchBar } from "@/components/layout/SearchBar";
 import { MapControls } from "@/components/map/MapControls";
 import { StoreDetailPanel } from "@/components/store/StoreDetailPanel";
 import { getOrCreateDeviceId } from "@/lib/device-id";
+import { resolveSearchCandidates } from "@/lib/search-discovery";
 import { getStoreLoadStrategy } from "@/lib/store-load-strategy";
 import type {
+  SearchCandidate,
+  SearchPhase,
   StoreDetailData,
   StoreSummary,
   ReportedCodeSummary,
@@ -28,7 +32,7 @@ const StoreMap = dynamic(
   {
   ssr: false,
   loading: () => (
-    <div className="map-frame relative min-h-[48rem] rounded-[2rem] border border-white/50" />
+    <div className="map-frame relative min-h-[24rem] rounded-[2rem] border border-white/50 sm:min-h-[30rem] lg:min-h-[48rem]" />
   ),
   },
 );
@@ -251,6 +255,112 @@ async function geocodeSearch(query: string) {
   };
 }
 
+function buildLocalSearchMatches(query: string, stores: StoreDetailData[]) {
+  const normalizedQuery = query.toLowerCase();
+
+  return stores.filter((store) => {
+    const haystack = [
+      store.name,
+      store.address,
+      store.city,
+      store.state,
+      store.zip,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedQuery);
+  });
+}
+
+function StartNearbyTeaser({
+  onNearMe,
+  statusMessage,
+}: {
+  onNearMe: () => void;
+  statusMessage: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="font-functional text-[0.62rem] tracking-[0.3em] text-brand-primary-dark/65">
+          START NEARBY
+        </p>
+        <h3 className="mt-2 font-display text-[1.45rem] leading-tight text-brand-primary-dark">
+          Find a Starbucks in one move.
+        </h3>
+        <p className="mt-2 text-[0.9rem] leading-6 text-text-secondary">
+          Use your location or search by city, ZIP, address, or store name.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-[1.3rem] border border-brand-primary/10 bg-white/78 px-4 py-3">
+        <div>
+          <p className="text-[0.8rem] font-medium text-brand-primary-dark">
+            {statusMessage}
+          </p>
+          <p className="mt-1 text-[0.75rem] text-text-secondary">
+            Map, codes, and detail history will open here.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onNearMe}
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-primary px-4 py-2.5 text-[0.8rem] font-semibold text-white shadow-[0_16px_30px_rgba(22,54,46,0.18)] transition hover:bg-brand-primary-dark"
+        >
+          <Compass className="h-4 w-4" />
+          Use my location
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SelectedStoreTeaser({
+  store,
+  onOpen,
+}: {
+  store: StoreDetailData;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="rounded-[1.4rem] border border-brand-primary/10 bg-white/82 px-4 py-4">
+        <p className="font-functional text-[0.62rem] tracking-[0.3em] text-brand-primary-dark/65">
+          SELECTED LOCATION
+        </p>
+        <h3 className="mt-2 font-display text-[1.35rem] leading-tight text-brand-primary-dark">
+          {store.name}
+        </h3>
+        <p className="mt-2 text-[0.85rem] leading-6 text-text-secondary">
+          {store.address}, {store.city}, {store.state} {store.zip}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="inline-flex rounded-full border border-brand-primary/10 bg-white/90 px-3 py-1.5 text-[0.72rem] font-semibold text-brand-primary-dark">
+            {store.activeCodeCount
+              ? `${store.activeCodeCount} active code${store.activeCodeCount === 1 ? "" : "s"}`
+              : "No active code yet"}
+          </span>
+          {store.lastUpdatedLabel ? (
+            <span className="inline-flex rounded-full border border-brand-primary/10 bg-white/90 px-3 py-1.5 text-[0.72rem] text-text-secondary">
+              {store.lastUpdatedLabel}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpen}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-primary px-4 py-3 text-[0.82rem] font-semibold text-white shadow-[0_16px_30px_rgba(22,54,46,0.18)] transition hover:bg-brand-primary-dark"
+      >
+        <Sparkles className="h-4 w-4" />
+        Open full details
+      </button>
+    </div>
+  );
+}
+
 export function PitstopShell() {
   const [stores, setStores] = useState<StoreDetailData[]>([]);
   const [boundsQuery, setBoundsQuery] = useState<string | null>(
@@ -258,7 +368,11 @@ export function PitstopShell() {
       ? null
       : "-125.000000,24.500000,-66.500000,49.500000",
   );
-  const [searchStatus, setSearchStatus] = useState<string | null>(null);
+  const [searchPhase, setSearchPhase] = useState<SearchPhase>("idle");
+  const [searchResults, setSearchResults] = useState<SearchCandidate[]>([]);
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [mapStatusMessage, setMapStatusMessage] = useState<string | null>(null);
   const [loadStatus, setLoadStatus] = useState<"idle" | "loading" | "ready">(
     "idle",
   );
@@ -284,10 +398,6 @@ export function PitstopShell() {
   );
 
   useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
-
-  useEffect(() => {
     if (!position) {
       return;
     }
@@ -298,13 +408,25 @@ export function PitstopShell() {
         longitude: position.longitude,
         zoom: 11.6,
       });
-      setSearchStatus("Centered near your location.");
+      setStatusMessage("Centered near your location.");
+      setSearchPhase("place");
     }, 0);
 
     return () => {
       window.clearTimeout(timeout);
     };
   }, [position, setViewport]);
+
+  useEffect(() => {
+    if (status === "requesting") {
+      setStatusMessage("Finding you...");
+      return;
+    }
+
+    if (status === "denied") {
+      setStatusMessage(error ?? "Location denied. Defaulting to the U.S. view.");
+    }
+  }, [error, status]);
 
   const viewportLatitude = viewport.latitude;
   const viewportLongitude = viewport.longitude;
@@ -336,7 +458,7 @@ export function PitstopShell() {
               : [],
           );
           setLoadStatus("ready");
-          setSearchStatus("Zoom in to load stores across the visible map.");
+          setMapStatusMessage("Zoom in to load stores across the visible map.");
           return;
         }
 
@@ -361,13 +483,13 @@ export function PitstopShell() {
         setLoadStatus("ready");
 
         if (nextStores.length === 0 && !selectedStoreId) {
-          setSearchStatus(
+          setMapStatusMessage(
             mode === "bbox"
               ? "No qualifying stores are loaded in this view yet."
               : "No nearby qualifying stores are loaded yet.",
           );
         } else if (nextStores.length > 0) {
-          setSearchStatus(
+          setMapStatusMessage(
             mode === "bbox"
               ? `${nextStores.length} qualifying store${nextStores.length === 1 ? "" : "s"} loaded in view.`
               : `${nextStores.length} nearby qualifying store${nextStores.length === 1 ? "" : "s"} loaded.`,
@@ -380,7 +502,7 @@ export function PitstopShell() {
 
         setLoadStatus("ready");
         setStores([]);
-        setSearchStatus(
+        setMapStatusMessage(
           error instanceof Error
             ? error.message
             : "Unable to load stores right now.",
@@ -400,41 +522,54 @@ export function PitstopShell() {
     viewportZoom,
   ]);
 
+  function focusStore(store: StoreSummary, nextMessage: string) {
+    setSearchResults([]);
+    setSelectedResultId(store.id);
+    setSearchPhase("exact");
+    setSelectedStoreId(store.id);
+    setPanelMode("open");
+    setViewport({
+      latitude: store.latitude,
+      longitude: store.longitude,
+      zoom: Math.max(viewport.zoom, 13),
+    });
+    setStatusMessage(nextMessage);
+  }
+
   const handleSearch = async (value: string) => {
     const query = value.trim();
     setSearchQuery(query);
+    setSelectedResultId(null);
+    setSearchResults([]);
 
     if (!query) {
-      setSearchStatus("Search by city, ZIP, address, or store name.");
+      setSearchPhase("idle");
+      setStatusMessage("Search by city, ZIP, address, or store name.");
       return;
     }
 
-    const match = stores.find((store) => {
-      const haystack = [
-        store.name,
-        store.address,
-        store.city,
-        store.state,
-        store.zip,
-      ]
-        .join(" ")
-        .toLowerCase();
+    const localResolution = resolveSearchCandidates(
+      query,
+      buildLocalSearchMatches(query, stores),
+    );
 
-      return haystack.includes(query.toLowerCase());
-    });
-
-    if (match) {
-      setSelectedStoreId(match.id);
-      setViewport({
-        latitude: match.latitude,
-        longitude: match.longitude,
-        zoom: Math.max(viewport.zoom, 13),
-      });
-      setSearchStatus(`Jumped to ${match.name}.`);
+    if (localResolution.phase === "exact" && localResolution.selectedStore) {
+      focusStore(localResolution.selectedStore, `Jumped to ${localResolution.selectedStore.name}.`);
       return;
     }
 
-    setSearchStatus(`Searching for ${query}...`);
+    if (localResolution.phase === "results" && localResolution.candidates.length > 0) {
+      clearSelection();
+      setPanelMode(localResolution.panelMode);
+      setSearchPhase("results");
+      setSearchResults(localResolution.candidates);
+      setSelectedResultId(localResolution.selectedResultId);
+      setStatusMessage("Choose the closest matching Starbucks.");
+      return;
+    }
+
+    setSearchPhase("searching");
+    setStatusMessage(`Searching for ${query}...`);
 
     try {
       const url = new URL("/api/search", window.location.origin);
@@ -458,16 +593,20 @@ export function PitstopShell() {
         : [];
 
       if (results.length > 0) {
-        const [first] = results;
         setStores((current) => mergeStores(current, results));
-        setSelectedStoreId(first.id);
-        setPanelMode("open");
-        setViewport({
-          latitude: first.latitude,
-          longitude: first.longitude,
-          zoom: Math.max(viewport.zoom, 13),
-        });
-        setSearchStatus(`Jumped to ${first.name}.`);
+        const remoteResolution = resolveSearchCandidates(query, results);
+
+        if (remoteResolution.phase === "exact" && remoteResolution.selectedStore) {
+          focusStore(remoteResolution.selectedStore, `Jumped to ${remoteResolution.selectedStore.name}.`);
+          return;
+        }
+
+        clearSelection();
+        setPanelMode(remoteResolution.panelMode);
+        setSearchPhase("results");
+        setSearchResults(remoteResolution.candidates);
+        setSelectedResultId(remoteResolution.selectedResultId);
+        setStatusMessage("Multiple stores matched. Pick the one you want.");
         return;
       }
 
@@ -475,21 +614,25 @@ export function PitstopShell() {
 
       if (geocoded) {
         clearSelection();
+        setSearchPhase("place");
+        setSearchResults([]);
         setPanelMode("peek");
         setViewport({
           latitude: geocoded.latitude,
           longitude: geocoded.longitude,
           zoom: Math.max(viewport.zoom, 10.5),
         });
-        setSearchStatus(
+        setStatusMessage(
           `Moved the map to ${geocoded.label}. Zoom in to load nearby stores.`,
         );
         return;
       }
 
-      setSearchStatus("No qualifying store or place match found.");
+      setSearchPhase("empty");
+      setStatusMessage("No qualifying store or place match found.");
     } catch (error) {
-      setSearchStatus(
+      setSearchPhase("error");
+      setStatusMessage(
         error instanceof Error ? error.message : "Search failed right now.",
       );
     }
@@ -497,6 +640,9 @@ export function PitstopShell() {
 
   const handleNearMe = () => {
     requestLocation();
+    setSearchResults([]);
+    setSelectedResultId(null);
+    setStatusMessage("Finding you...");
     setPanelMode("peek");
   };
 
@@ -507,6 +653,7 @@ export function PitstopShell() {
         longitude: position.longitude,
         zoom: 11.6,
       });
+      setStatusMessage("Back near your saved location.");
       return;
     }
 
@@ -515,6 +662,7 @@ export function PitstopShell() {
       longitude: -98.5795,
       zoom: 3.5,
     });
+    setStatusMessage("Back to the nationwide view.");
   };
 
   const mapStatus =
@@ -524,10 +672,30 @@ export function PitstopShell() {
         ? error ?? "Location denied. Defaulting to the U.S. view."
         : status === "requesting"
           ? "Finding you..."
-          : "Search the U.S. map.";
+          : "Search the U.S. map or use your location.";
 
-  const selectedStoreStatus =
-    selectedStore?.lastUpdatedLabel ?? searchStatus ?? mapStatus;
+  const trustItems = [
+    {
+      label: "Anonymous by design",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Conservative filtering",
+      icon: Sparkles,
+    },
+  ];
+
+  const mobilePeekContent = selectedStore ? (
+    <SelectedStoreTeaser
+      store={selectedStore}
+      onOpen={() => setPanelMode("open")}
+    />
+  ) : (
+    <StartNearbyTeaser
+      onNearMe={handleNearMe}
+      statusMessage={statusMessage ?? mapStatusMessage ?? mapStatus}
+    />
+  );
 
   async function submitCode(code: string) {
     if (!selectedStore) {
@@ -628,34 +796,57 @@ export function PitstopShell() {
       <Navbar />
 
       <main className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-4 px-[var(--space-page)] pb-[var(--space-page)] pt-4 lg:flex-row">
-          <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-            <div className="space-y-3">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-3 px-[var(--space-page)] pb-[var(--space-page)] pt-3 lg:flex-row lg:gap-4">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+            <div className="space-y-2">
               <SearchBar
                 value={searchQuery}
                 onChange={setSearchQuery}
                 onSubmit={handleSearch}
                 onNearMe={handleNearMe}
+                onResultSelect={(storeId) => {
+                  const match = stores.find((store) => store.id === storeId);
+
+                  if (!match) {
+                    return;
+                  }
+
+                  focusStore(match, `Showing ${match.name}.`);
+                }}
+                results={searchResults}
+                selectedResultId={selectedResultId}
+                searchState={searchPhase}
                 onClear={() => {
                   setSearchQuery("");
-                  setSearchStatus("Search cleared.");
+                  setSearchResults([]);
+                  setSelectedResultId(null);
+                  setSearchPhase("idle");
+                  setStatusMessage("Search cleared.");
                 }}
-                statusText={searchStatus ?? mapStatus}
+                statusText={
+                  searchPhase === "searching"
+                    ? "Searching..."
+                    : statusMessage ?? mapStatusMessage ?? mapStatus
+                }
               />
 
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Company-operated first",
-                  "Conservative filtering",
-                  "Mobile-first detail sheet",
-                ].map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-[0.72rem] font-medium text-text-secondary shadow-[0_10px_24px_rgba(22,54,46,0.08)] backdrop-blur-md"
-                  >
-                    {label}
-                  </span>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {trustItems.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <span
+                      key={item.label}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/72 px-3 py-1.5 text-[0.72rem] font-medium text-text-secondary shadow-[0_10px_24px_rgba(22,54,46,0.08)] backdrop-blur-md"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-brand-primary-dark" />
+                      {item.label}
+                    </span>
+                  );
+                })}
+                <span className="inline-flex items-center gap-2 rounded-full border border-brand-accent/15 bg-brand-accent/10 px-3 py-1.5 text-[0.72rem] font-medium text-brand-primary-dark">
+                  Map-first lookup
+                </span>
               </div>
             </div>
 
@@ -669,6 +860,15 @@ export function PitstopShell() {
                 onBoundsChange={setBoundsQuery}
                 panelMode={panelMode}
                 onStoreSelect={(storeId) => {
+                  const match = stores.find((store) => store.id === storeId);
+                  setSearchResults([]);
+                  setSelectedResultId(storeId);
+                  setSearchPhase("exact");
+
+                  if (match) {
+                    setStatusMessage(`Viewing ${match.name}.`);
+                  }
+
                   setSelectedStoreId(storeId);
                   setPanelMode("open");
                 }}
@@ -678,7 +878,9 @@ export function PitstopShell() {
                   }
                 }}
                 onMapReady={() => {
-                  setPanelMode("peek");
+                  if (!selectedStoreId) {
+                    setPanelMode("peek");
+                  }
                 }}
                 mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
               />
@@ -691,13 +893,24 @@ export function PitstopShell() {
                   setViewport({ zoom: Math.max(2, viewport.zoom - 0.75) });
                 }}
                 onRecenter={handleRecenter}
-                onNearMe={handleNearMe}
-                nearMeStatus={
+                statusText={
                   loadStatus === "loading"
                     ? "Synchronizing map data..."
-                    : searchStatus ?? undefined
+                    : mapStatusMessage ?? undefined
                 }
               />
+
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 hidden md:block lg:hidden">
+                <div className="surface-card max-w-[18rem] rounded-[1.4rem] px-4 py-3">
+                  <p className="font-functional text-[0.62rem] tracking-[0.28em] text-brand-primary-dark/65">
+                    QUICK LOOKUP
+                  </p>
+                  <p className="mt-2 text-[0.82rem] leading-6 text-text-secondary">
+                    Search above or tap a pin. The detail sheet stays compact
+                    until you open a location.
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -712,34 +925,18 @@ export function PitstopShell() {
         </div>
       </main>
 
-      <div className="safe-area-bottom pointer-events-none fixed inset-x-0 bottom-0 z-40 px-[var(--space-page)] pb-[var(--space-page)] lg:hidden">
-        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-full border border-white/70 bg-white/82 px-4 py-3 text-[0.76rem] text-text-secondary shadow-[0_18px_36px_rgba(22,54,46,0.16)] backdrop-blur-md">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-state-success" />
-            {loadStatus === "loading"
-              ? "Loading stores"
-              : selectedStoreStatus ?? "Tap a pin to open details"}
-          </span>
-          <button
-            type="button"
-            onClick={handleNearMe}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-primary px-3 py-2 font-semibold text-white transition hover:bg-brand-primary-dark"
-          >
-            Use my location
-          </button>
-        </div>
-      </div>
-
       <StoreDetailPanel
         store={selectedStore}
         open={panelMode !== "collapsed"}
         sheetState={panelMode}
         variant="sheet"
+        peekContent={mobilePeekContent}
         onSubmitCode={submitCode}
         onVote={voteOnCode}
         onToggle={() => {
-          setPanelMode(panelMode === "collapsed" ? "open" : "collapsed");
+          setPanelMode(panelMode === "open" ? "peek" : "open");
         }}
+        onSheetStateChange={setPanelMode}
         onClose={() => {
           clearSelection();
           setPanelMode("collapsed");

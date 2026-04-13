@@ -67,7 +67,6 @@ html {
   min-height: 100%;
   background: var(--surface-base);
   color: var(--text-primary);
-  scroll-behavior: smooth;
 }
 
 body {
@@ -111,6 +110,11 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+:where(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-accent) 72%, white 28%);
+  outline-offset: 2px;
 }
 
 .font-display {
@@ -162,4 +166,19 @@ select {
 
 .safe-area-top {
   padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

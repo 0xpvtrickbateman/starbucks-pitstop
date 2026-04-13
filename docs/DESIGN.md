@@ -1,6 +1,21 @@
 # Starbucks Pitstop Design Research
 
-Last updated: 2026-04-12 19:56 MST
+Last updated: 2026-04-12 21:46 MST
+
+## 2026-04-12 Premium UX pass
+
+- The first viewport should privilege search plus map, not explanatory chrome. On mobile the map needs to feel immediately usable instead of waiting behind a tall onboarding sheet.
+- The mobile detail surface now uses a deliberately compact `peek` presentation:
+  - no selected store -> short “Start nearby” teaser with one primary CTA
+  - selected store -> one compact summary card plus the primary action
+  - full codes, history, and submission UI remain in `open`
+- Only one location CTA should be visible at a time on phone layouts. The fixed bottom action bar was removed, and the inline sheet CTA is now the single primary entry point.
+- Search status should live in one consistent region. Inline result cards, no-match copy, and “map moved to place” messaging are part of the same search system rather than separate chrome.
+- The trust/credibility row should read as one compact rail, not a cluster of unrelated badges.
+- Marker and cluster controls should expose descriptive accessible names that include store/code confidence context when available.
+- Motion should respect `prefers-reduced-motion`, and focus treatment should be strong and consistent across all primary interactive controls.
+- The standalone `/location/[id]` page should reuse the same premium material language as the main shell while staying clearly read-only and funneling interactive actions back to the live map.
+- Local/preview map failures should be explicit. When Mapbox tiles are blocked by origin allowlists or token/auth issues, the app should show a polished recovery surface instead of a blank map.
 
 ## 2026-04-12 Mobile shell behavior update
 

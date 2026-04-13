@@ -6,6 +6,7 @@ import type { StoreCodeHealth } from "@/components/home/types";
 
 interface StoreMarkerProps {
   health?: StoreCodeHealth;
+  label?: string;
   selected?: boolean;
   active?: boolean;
   onClick?: () => void;
@@ -19,6 +20,7 @@ const HEALTH_STYLES: Record<StoreCodeHealth, string> = {
 
 export function StoreMarker({
   health = "empty",
+  label,
   selected = false,
   active = true,
   onClick,
@@ -33,7 +35,7 @@ export function StoreMarker({
         selected && "scale-110 ring-2 ring-brand-accent ring-offset-2 ring-offset-transparent",
         !active && "opacity-60",
       )}
-      aria-label="Open store details"
+      aria-label={label ?? "Open store details"}
     >
       <MapPin className="h-5 w-5" />
       <span

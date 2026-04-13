@@ -18,6 +18,7 @@ interface StoreDetailPanelProps {
   open: boolean;
   sheetState?: MobileSheetState;
   variant: "sheet" | "sidebar";
+  peekContent?: React.ReactNode;
   onSubmitCode?: (code: string) => string | void | Promise<string | void>;
   onVote?: (
     codeId: string,
@@ -25,6 +26,7 @@ interface StoreDetailPanelProps {
   ) => string | void | Promise<string | void>;
   onToggle?: () => void;
   onClose?: () => void;
+  onSheetStateChange?: (state: MobileSheetState) => void;
 }
 
 function EmptyState() {
@@ -32,41 +34,29 @@ function EmptyState() {
     <div className="space-y-4">
       <div className="surface-card rounded-[1.8rem] p-5">
         <p className="font-functional text-[0.62rem] tracking-[0.34em] text-brand-primary-dark/65">
-          GET STARTED
+          READY WHEN YOU ARE
         </p>
-        <h3 className="mt-2 font-display text-[1.4rem] text-brand-primary-dark">
-          Pick a Starbucks near you.
+        <h3 className="mt-2 font-display text-[1.45rem] leading-tight text-brand-primary-dark">
+          Search, tap a pin, then confirm the best code.
         </h3>
         <p className="mt-3 text-[0.95rem] leading-7 text-text-secondary">
-          Grant location access, search by city or ZIP, or tap a clustered pin
-          to open the detail panel. Codes, votes, and restroom hints are all
-          designed for standing-at-the-counter use.
+          The right-hand panel stays intentionally quiet until you choose a
+          store, so the map keeps center stage. Once a location is selected,
+          this space becomes the code brief, history, and submit surface.
         </p>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
         {[
-          {
-            title: "Fast lookup",
-            body: "Search the map or use the near-me button from a phone in hand.",
-          },
-          {
-            title: "Safe by default",
-            body: "Anonymous browsing, server-mediated writes, and conservative filtering.",
-          },
-          {
-            title: "Mobile first",
-            body: "Bottom sheet on phones, side panel on larger screens, jumbo code cards.",
-          },
+          "Fast lookup on the map",
+          "Anonymous, server-mediated writes",
+          "Conservative store inclusion",
         ].map((item) => (
           <div
-            key={item.title}
-            className="rounded-[1.4rem] border border-brand-primary/10 bg-white/80 p-4"
+            key={item}
+            className="rounded-[1.3rem] border border-brand-primary/10 bg-white/78 px-4 py-3 text-[0.84rem] font-medium text-text-secondary"
           >
-            <p className="font-medium text-brand-primary-dark">{item.title}</p>
-            <p className="mt-1 text-[0.86rem] leading-6 text-text-secondary">
-              {item.body}
-            </p>
+            {item}
           </div>
         ))}
       </div>
@@ -194,10 +184,12 @@ export function StoreDetailPanel({
   open,
   sheetState = open ? "open" : "collapsed",
   variant,
+  peekContent,
   onSubmitCode,
   onVote,
   onToggle,
   onClose,
+  onSheetStateChange,
 }: StoreDetailPanelProps) {
   const content = (
     <PanelContent store={store} onSubmitCode={onSubmitCode} onVote={onVote} />
@@ -209,8 +201,10 @@ export function StoreDetailPanel({
         state={sheetState}
         title={store?.name ?? "Find a Starbucks"}
         subtitle={store ? "Selected location" : "Start nearby"}
+        peekContent={peekContent}
         onToggle={onToggle}
         onClose={onClose}
+        onDragStateChange={onSheetStateChange}
       >
         {content}
       </MobileSheet>
