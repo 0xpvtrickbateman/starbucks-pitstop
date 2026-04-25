@@ -7,7 +7,9 @@ import { Navbar } from "@/components/layout/Navbar";
 import { SearchBar } from "@/components/layout/SearchBar";
 import { MapControls } from "@/components/map/MapControls";
 import { StoreDetailPanel } from "@/components/store/StoreDetailPanel";
+import type { CodeSubmitDraft } from "@/components/store/CodeSubmitForm";
 import { getOrCreateDeviceId } from "@/lib/device-id";
+import { formatActiveEntrySummary } from "@/lib/restroom-entry";
 import { resolveSearchCandidates } from "@/lib/search-discovery";
 import { getStoreLoadStrategy } from "@/lib/store-load-strategy";
 import type {
@@ -300,7 +302,7 @@ function StartNearbyTeaser({
             {statusMessage}
           </p>
           <p className="mt-1 text-[0.75rem] text-text-secondary">
-            Map, codes, and detail history will open here.
+            Map, restroom entries, and detail history will open here.
           </p>
         </div>
         <button
@@ -338,8 +340,8 @@ function SelectedStoreTeaser({
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="inline-flex rounded-full border border-brand-primary/10 bg-white/90 px-3 py-1.5 text-[0.72rem] font-semibold text-brand-primary-dark">
             {store.activeCodeCount
-              ? `${store.activeCodeCount} active code${store.activeCodeCount === 1 ? "" : "s"}`
-              : "No active code yet"}
+              ? formatActiveEntrySummary(store.activeCodeCount)
+              : "No active entry yet"}
           </span>
           {store.lastUpdatedLabel ? (
             <span className="inline-flex rounded-full border border-brand-primary/10 bg-white/90 px-3 py-1.5 text-[0.72rem] text-text-secondary">
@@ -697,9 +699,9 @@ export function PitstopShell() {
     />
   );
 
-  async function submitCode(code: string) {
+  async function submitEntry(entry: CodeSubmitDraft) {
     if (!selectedStore) {
-      throw new Error("Choose a store before submitting a code.");
+      throw new Error("Choose a store before submitting an entry.");
     }
 
     const deviceId = getOrCreateDeviceId();
@@ -715,7 +717,8 @@ export function PitstopShell() {
       },
       body: JSON.stringify({
         storeId: selectedStore.id,
-        code,
+        entryType: entry.entryType,
+        code: entry.code,
         deviceId,
       }),
     });
@@ -728,7 +731,7 @@ export function PitstopShell() {
     const errorMessage = "error" in payload ? payload.error : undefined;
 
     if (!response.ok || !("codes" in payload)) {
-      throw new Error(errorMessage ?? "Unable to submit a code right now.");
+      throw new Error(errorMessage ?? "Unable to submit an entry right now.");
     }
 
     setStores((current) =>
@@ -740,8 +743,12 @@ export function PitstopShell() {
     );
 
     return payload.existing
-      ? "That code was already on file, so I refreshed the current vote state."
-      : "Code saved. Thanks for helping the next person.";
+      ? entry.entryType === "no-code-required"
+        ? "That no-code report was already on file, so I refreshed the current vote state."
+        : "That code was already on file, so I refreshed the current vote state."
+      : entry.entryType === "no-code-required"
+        ? "No-code report saved. Thanks for helping the next person."
+        : "Code saved. Thanks for helping the next person.";
   }
 
   async function voteOnCode(codeId: string, vote: "up" | "down") {
@@ -918,7 +925,7 @@ export function PitstopShell() {
             store={selectedStore}
             open={panelMode !== "collapsed"}
             variant="sidebar"
-            onSubmitCode={submitCode}
+            onSubmitEntry={submitEntry}
             onVote={voteOnCode}
             onClose={clearSelection}
           />
@@ -931,7 +938,7 @@ export function PitstopShell() {
         sheetState={panelMode}
         variant="sheet"
         peekContent={mobilePeekContent}
-        onSubmitCode={submitCode}
+        onSubmitEntry={submitEntry}
         onVote={voteOnCode}
         onToggle={() => {
           setPanelMode(panelMode === "open" ? "peek" : "open");

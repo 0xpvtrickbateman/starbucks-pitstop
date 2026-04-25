@@ -8,7 +8,10 @@ import {
 } from "@/components/layout/MobileSheet";
 import type { StoreDetailData } from "@/components/home/types";
 import { CodeDisplay } from "@/components/store/CodeDisplay";
-import { CodeSubmitForm } from "@/components/store/CodeSubmitForm";
+import {
+  CodeSubmitForm,
+  type CodeSubmitDraft,
+} from "@/components/store/CodeSubmitForm";
 import { CodeVoteButtons } from "@/components/store/CodeVoteButtons";
 import { StoreCard } from "@/components/store/StoreCard";
 import { cn } from "@/components/utils/cn";
@@ -19,7 +22,7 @@ interface StoreDetailPanelProps {
   sheetState?: MobileSheetState;
   variant: "sheet" | "sidebar";
   peekContent?: React.ReactNode;
-  onSubmitCode?: (code: string) => string | void | Promise<string | void>;
+  onSubmitEntry?: (draft: CodeSubmitDraft) => string | void | Promise<string | void>;
   onVote?: (
     codeId: string,
     vote: "up" | "down",
@@ -66,11 +69,11 @@ function EmptyState() {
 
 function PanelContent({
   store,
-  onSubmitCode,
+  onSubmitEntry,
   onVote,
 }: {
   store: StoreDetailData | null;
-  onSubmitCode?: (code: string) => string | void | Promise<string | void>;
+  onSubmitEntry?: (draft: CodeSubmitDraft) => string | void | Promise<string | void>;
   onVote?: (
     codeId: string,
     vote: "up" | "down",
@@ -113,10 +116,12 @@ function PanelContent({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-functional text-[0.62rem] tracking-[0.34em] text-brand-primary-dark/65">
-              ACTIVE CODES
+              ACTIVE ENTRIES
             </p>
             <h4 className="mt-1 font-display text-[1.18rem] text-brand-primary-dark">
-              {activeCodes.length ? "Current candidate codes" : "No active code yet"}
+              {activeCodes.length
+                ? "Current restroom access reports"
+                : "No active entry yet"}
             </h4>
           </div>
           {inactiveCount > 0 ? (
@@ -125,7 +130,7 @@ function PanelContent({
               onClick={() => setShowOldCodes((value) => !value)}
               className="rounded-full border border-brand-primary/10 bg-white/85 px-3 py-2 text-[0.72rem] font-semibold text-brand-primary-dark transition hover:bg-brand-primary-soft/60"
             >
-              {showOldCodes ? "Hide old codes" : "Show old codes"} ({inactiveCount})
+              {showOldCodes ? "Hide old entries" : "Show old entries"} ({inactiveCount})
             </button>
           ) : null}
         </div>
@@ -149,15 +154,16 @@ function PanelContent({
           </div>
         ) : (
           <div className="rounded-[1.6rem] border border-dashed border-brand-primary/15 bg-white/70 px-4 py-6 text-[0.92rem] leading-7 text-text-secondary">
-            No active codes have been attached to this store yet. Be the first
-            to report one for the next person in line.
+            No active restroom entry has been attached to this store yet. Be
+            the first to report a working code or mark it as no code required.
           </div>
         )}
 
         {showOldCodes && inactiveCount > 0 ? (
           <div className="space-y-3 rounded-[1.6rem] border border-brand-primary/10 bg-white/70 p-4">
             <p className="text-[0.9rem] text-text-secondary">
-              Old codes stay in history for context. Treat them as backup only.
+              Old entries stay in history for context. Treat them as backup
+              only.
             </p>
             {inactiveCodes.map((code) => (
               <CodeDisplay key={code.id} code={code} />
@@ -168,12 +174,13 @@ function PanelContent({
 
       <CodeSubmitForm
         storeName={store.name}
-        onSubmit={onSubmitCode}
+        onSubmit={onSubmitEntry}
       />
 
       <p className="rounded-[1.3rem] border border-brand-primary/10 bg-white/75 px-4 py-3 text-[0.78rem] leading-6 text-text-secondary">
-        This project is not affiliated with Starbucks. Restroom codes are
-        user-reported and can change without notice.
+        This project is not affiliated with Starbucks. Restroom entries are
+        user-reported, can change without notice, and may include no-code
+        entries.
       </p>
     </div>
   );
@@ -185,14 +192,14 @@ export function StoreDetailPanel({
   sheetState = open ? "open" : "collapsed",
   variant,
   peekContent,
-  onSubmitCode,
+  onSubmitEntry,
   onVote,
   onToggle,
   onClose,
   onSheetStateChange,
 }: StoreDetailPanelProps) {
   const content = (
-    <PanelContent store={store} onSubmitCode={onSubmitCode} onVote={onVote} />
+    <PanelContent store={store} onSubmitEntry={onSubmitEntry} onVote={onVote} />
   );
 
   if (variant === "sheet") {

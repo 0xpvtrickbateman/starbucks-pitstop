@@ -295,10 +295,18 @@ describe("codeSubmissionSchema — code content validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts alphanumeric codes with spaces and hyphens (allowed by schema regex)", () => {
+  it("accepts codes with spaces, hyphens, and # (allowed by schema regex)", () => {
     const result = codeSubmissionSchema.safeParse({
       ...validBase,
-      code: "AB 12-34",
+      code: "16 01-#",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an explicit no-code-required entry without a keypad code", () => {
+    const result = codeSubmissionSchema.safeParse({
+      ...validBase,
+      entryType: "no-code-required",
     });
     expect(result.success).toBe(true);
   });

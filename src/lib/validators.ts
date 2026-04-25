@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 const deviceIdSchema = z.uuid();
+const entryTypeSchema = z.enum(["code", "no-code-required"]);
+const codeValueSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(16)
+  .regex(/^[a-zA-Z0-9# -]+$/, "Codes must contain only letters, numbers, spaces, hyphens, or #");
 
 export const locationsQuerySchema = z
   .object({
@@ -25,16 +32,38 @@ export const locationsQuerySchema = z
     }
   });
 
-export const codeSubmissionSchema = z.object({
-  storeId: z.string().min(1),
-  code: z
-    .string()
-    .trim()
-    .min(3)
-    .max(16)
-    .regex(/^[a-zA-Z0-9 -]+$/, "Codes must be alphanumeric"),
-  deviceId: deviceIdSchema,
-});
+export const codeSubmissionSchema = z
+  .object({
+    storeId: z.string().min(1),
+    entryType: entryTypeSchema.optional(),
+    code: z.string().optional(),
+    deviceId: deviceIdSchema,
+  })
+  .superRefine((value, context) => {
+    const entryType = value.entryType ?? "code";
+
+    if (entryType !== "code") {
+      return;
+    }
+
+    const result = codeValueSchema.safeParse(value.code);
+
+    if (result.success) {
+      return;
+    }
+
+    for (const issue of result.error.issues) {
+      context.addIssue({
+        ...issue,
+        path: ["code", ...issue.path],
+      });
+    }
+  })
+  .transform((value) => ({
+    ...value,
+    entryType: value.entryType ?? "code",
+    code: value.code?.trim(),
+  }));
 
 export const voteSubmissionSchema = z.object({
   codeId: z.uuid(),

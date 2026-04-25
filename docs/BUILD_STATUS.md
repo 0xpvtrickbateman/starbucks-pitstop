@@ -236,6 +236,43 @@ A second review surfaced six issues — all fixed, applied, and reverified on 20
 - Added a local in-memory backend fallback for development and optional local preview mode without Supabase credentials
 - Added a Mapbox-token-missing fallback panel so local search and store detail flows still work without an interactive map token
 
+### 2026-04-13 Phoenix restroom-entry pass
+
+- Added first-class `No Code Required` support to the entry flow without weakening the existing server-mediated write path or hashed-device submission model.
+- Expanded code normalization + validation to preserve a trailing `#`, because verified Phoenix entries include `1601#`, `1190#`, and `4268#`.
+- Updated user-facing copy so mixed access reports are described as restroom `entries` where appropriate, while keeping voting/history behavior unchanged.
+- Added migration `supabase/migrations/20260413170000_seed_phoenix_restroom_entries.sql` to seed seven verified Phoenix-metro entries:
+  - `7540` `44th St. & Thomas, Phoenix` -> `23629`
+  - `14069` `16th Street & Bethany Home, Phoenix` -> `1601#`
+  - `116525` `Rural & Lakeshore, Tempe` -> `78920`
+  - `1005596` `7th St. & Osborn, Phoenix` -> `45678`
+  - `1007783` `N Scottsdale Rd & N Goldwater, Scottsdale` -> `1190#`
+  - `1005602` `28th St & Indian School, Phoenix` -> `4268#`
+  - `1022226` `7th & Highland, Phoenix` -> `No Code Required`
+- Applied the same seven rows directly to the connected Supabase project and verified they are visible in `public_code_read_model` as active entries with `0` votes.
+- At this point in the pass, `Higley & Elliot` was not seeded yet. The live official locator resolved that location as store `1040430` at `49 S Higley Rd`, but the synced store set exposed only an excluded Overture row there (`ambiguous-format`). This was later repaired in the 2026-04-24 follow-up below.
+- Verification after this pass:
+  - `npm run test` -> `112` tests passed across `16` files
+  - `npm run lint` -> passed
+  - `npx tsc --noEmit` -> passed
+  - `npm run build` -> passed
+
+### 2026-04-24 Phoenix restroom-entry follow-up
+
+- Added migration `supabase/migrations/20260424170000_seed_remaining_phoenix_entries.sql`.
+- Repaired `Higley & Elliot` by inserting official Starbucks locator store `1040430` (`49 S Higley Rd`, Gilbert, AZ 85296) into the non-excluded store surface.
+- Seeded the two remaining user-confirmed entries:
+  - `1040430` `Higley & Elliot, Gilbert` -> `No Code Required`
+  - `1009251` `56th Street & Indian School, Phoenix` -> `55498`
+- Applied the same changes directly to the connected Supabase project and verified all nine requested Phoenix metro entries through `public_store_read_model` and `public_code_read_model`.
+- Verification after this follow-up:
+  - `npx supabase db push --linked --yes` -> applied `20260413170000_seed_phoenix_restroom_entries.sql` and `20260424170000_seed_remaining_phoenix_entries.sql`
+  - `npx supabase migration list --linked` -> confirmed both seed migrations are present locally and remotely
+  - `public_code_read_model` -> confirmed all nine requested Phoenix metro entries are active
+  - `npm run test` -> `112` tests passed across `16` files
+  - `npm run lint` -> passed
+  - `npx tsc --noEmit` -> passed
+
 ### 2026-04-09 production remediation pass
 
 - **Fixed map clustering scope**: Clustering now operates against the current viewport bounds (with a 1.5x buffer) instead of world bounds. This prevents performance degradation from clustering ~13.5k stores at high zoom levels.

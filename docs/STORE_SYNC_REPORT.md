@@ -324,6 +324,39 @@ The official path takes significantly longer (hours for full US coverage at low 
 
 ---
 
+## 2026-04-13 Phoenix locator verification
+
+Official Starbucks locator spot-checks on 2026-04-13 for the user-supplied Phoenix-metro labels:
+
+- `44th St. & Thomas, Phoenix` -> official store `7540`, `2824 N 44th St`, present in `public_store_read_model`, `is_excluded=false`
+- `16th Street & Bethany Home, Phoenix` -> official store `14069`, `1601 E Bethany Home Rd`, present, `is_excluded=false`
+- `Rural & Lakeshore, Tempe` -> official store `116525`, `4475 S Rural Rd`, present, `is_excluded=false`
+- `7th St. & Osborn, Phoenix` -> official store `1005596`, `650 E Osborn Rd`, present, `is_excluded=false`
+- `N Scottsdale Rd & N Goldwater, Scottsdale` -> official store `1007783`, `3530 N Goldwater Blvd`, present, `is_excluded=false`
+- `28th St & Indian School, Phoenix` -> official store `1005602`, `2802 E Indian School Rd`, present, `is_excluded=false`
+- `7th & Highland, Phoenix` -> official store `1022226`, `4717 N 7th St`, present, `is_excluded=false`
+- `Higley & Elliot, Gilbert` -> official store `1040430`, `49 S Higley Rd`, initially not present as a non-excluded synced store
+
+Initial sync gap for `Higley & Elliot`:
+
+- The synced store surface contained only `overture:9ae6313b-411c-4099-9c3d-faa8cbe110f0` at `49 S Higley Rd`.
+- That row is marked `is_excluded=true`, `exclusion_reason=ambiguous-format`.
+- Per the conservative-filter guardrail, the 2026-04-13 Phoenix seed migration intentionally omitted this location until the store-sync surface was repaired.
+
+Phoenix entry seed application status:
+
+- The seven verified non-excluded stores above were also upserted directly into the connected Supabase `codes` table on 2026-04-13.
+- Follow-up verification through `public_code_read_model` returned all seven expected active entries, including `No Code Required` for store `1022226`.
+
+## 2026-04-24 Phoenix locator follow-up
+
+- Rechecked `Higley & Elliot, Gilbert` against the live official locator and confirmed store `1040430`, `49 S Higley Rd`, `CO`, drive-thru, cafe seating, outdoor seating, and mobile ordering.
+- Inserted official spot-check store `1040430` into the connected Supabase `stores` table as `is_excluded=false`.
+- Seeded `No Code Required` for `1040430`.
+- Rechecked `56th St & Indian School, Phoenix` against the live official locator and confirmed store `1009251`, `5549 E Indian School Rd`, already present as `is_excluded=false`.
+- Seeded `55498` for `1009251`.
+- Follow-up verification through `public_store_read_model` and `public_code_read_model` returned all nine requested Phoenix metro stores/entries.
+
 ## 8. Pending
 
 - Upgrade to a newer Overture release (check for releases after `2026-02-18.0`)

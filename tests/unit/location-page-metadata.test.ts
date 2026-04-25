@@ -48,6 +48,6 @@ describe("location page metadata", () => {
       params: Promise.resolve({ id: "17844" }),
     });
 
-    expect(metadata.title).toBe("35th & Fauntleroy restroom codes");
+    expect(metadata.title).toBe("35th & Fauntleroy restroom entries");
   });
 });

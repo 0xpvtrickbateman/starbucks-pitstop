@@ -316,6 +316,51 @@ Performance is cold-start sensitive on a first-hit preview (Mapbox GL JS + cold 
 
 - Provision Upstash before any traffic-scale event if you want production off the DB-backed fallback path. The current fallback is explicitly accepted for this release.
 
+## 2026-04-13 Phoenix entry + no-code verification
+
+Change scope:
+
+- Added a `No Code Required` submission path through the existing `/api/codes` flow.
+- Preserved trailing `#` during code normalization and validation.
+- Seeded seven verified Phoenix-metro restroom entries via migration `20260413170000_seed_phoenix_restroom_entries.sql`.
+- Initially left `Higley & Elliot` unseeded because it did not exist in the synced non-excluded store surface. The 2026-04-24 follow-up repaired the official store row and seeded the confirmed no-code entry.
+
+Automated verification:
+
+- `npm run test` -> passed (`112` tests across `16` files)
+- `npm run lint` -> passed
+- `npx tsc --noEmit` -> passed
+- `npm run build` -> passed
+- Direct Supabase verification -> passed
+  - upserted the seven verified Phoenix rows into `codes`
+  - read back the same seven rows through `public_code_read_model`
+  - confirmed each entry is `is_active=true` with `0` initial votes
+
+Follow-up verification on 2026-04-24:
+
+- Inserted official locator store `1040430` for `Higley & Elliot` into `stores` as `is_excluded=false`.
+- Upserted `No Code Required` for store `1040430`.
+- Upserted `55498` for store `1009251` (`56th Street & Indian School`).
+- Read back all nine requested Phoenix metro locations through `public_store_read_model` and all nine active entries through `public_code_read_model`.
+- Applied the two local seed migrations to the linked remote Supabase database with `npx supabase db push --linked --yes`.
+- Confirmed `20260413170000` and `20260424170000` are now present in the remote migration history via `npx supabase migration list --linked`.
+- `npm run test`, `npm run lint`, and `npx tsc --noEmit` passed after the follow-up.
+
+Targeted coverage added/updated:
+
+- `tests/unit/crypto.test.ts`
+  - verifies `normalizeCodeInput(..., "no-code-required")` returns the expected sentinel
+  - verifies `#` is preserved while other punctuation is stripped
+- `tests/unit/validators.test.ts`
+  - verifies explicit `no-code-required` submissions are accepted without a keypad code
+- `tests/unit/security-invariants.test.ts`
+  - verifies the schema accepts safe `#`-bearing codes and explicit no-code submissions
+- `tests/mock-backend.test.ts`
+  - verifies the local mock backend accepts and returns a `No Code Required` entry
+- `tests/e2e/app.spec.ts`
+  - updated the main submit flow for the renamed `Submit entry` action
+  - added a no-code submission flow that confirms the new report appears in the detail panel
+
 ## Known Limitations
 
 - Lighthouse Performance score on a cold preview is not representative of warm-path performance; rerun against a warmed prod URL for an accurate baseline.

@@ -59,4 +59,22 @@ describe("mock backend", () => {
 
     expect(fetchMockStoreById("store-camelback-phoenix")?.codes).toHaveLength(1);
   });
+
+  it("supports submitting a no-code-required entry", () => {
+    const submitted = submitMockCode({
+      storeId: "store-camelback-phoenix",
+      codeDisplay: "No Code Required",
+      codeNormalized: "NOCODEREQUIRED",
+    });
+
+    expect(submitted.existing).toBe(false);
+    expect(submitted.codes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          codeDisplay: "No Code Required",
+          isActive: true,
+        }),
+      ]),
+    );
+  });
 });

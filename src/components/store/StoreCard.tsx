@@ -3,6 +3,7 @@
 import { ChevronRight, MapPin, Navigation2, Sparkles } from "lucide-react";
 import { cn } from "@/components/utils/cn";
 import type { StoreSummary } from "@/components/home/types";
+import { formatActiveEntrySummary } from "@/lib/restroom-entry";
 
 interface StoreCardProps {
   store: StoreSummary;
@@ -52,12 +53,11 @@ export function StoreCard({
         {store.activeCodeCount ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary px-3 py-1.5 text-[0.72rem] font-semibold text-white">
             <Sparkles className="h-3.5 w-3.5" />
-            {store.activeCodeCount} active code
-            {store.activeCodeCount === 1 ? "" : "s"}
+            {formatActiveEntrySummary(store.activeCodeCount)}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-primary/10 bg-white/85 px-3 py-1.5 text-[0.72rem] font-semibold text-text-secondary">
-            No active code yet
+            No active entry yet
           </span>
         )}
 

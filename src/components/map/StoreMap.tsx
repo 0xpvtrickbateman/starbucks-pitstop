@@ -10,6 +10,7 @@ import type { StoreSummary, StoreCodeHealth } from "@/components/home/types";
 import { StoreCluster } from "@/components/map/StoreCluster";
 import { StoreMarker } from "@/components/map/StoreMarker";
 import { getMapboxRecoveryIssueForOrigin } from "@/lib/mapbox-origin";
+import { formatActiveRestroomEntrySummary } from "@/lib/restroom-entry";
 import type { MapPanelMode, MapViewport } from "@/stores/mapStore";
 
 interface StoreMapProps {
@@ -168,7 +169,7 @@ function MissingTokenFrame({
         </h2>
         <p className="mt-3 text-[0.96rem] leading-7 text-text-secondary">
           Set <code>NEXT_PUBLIC_MAPBOX_TOKEN</code> to unlock the map. Store
-          search, the detail panel, code submission, and voting still work
+          search, the detail panel, entry submission, and voting still work
           locally.
         </p>
 
@@ -199,10 +200,7 @@ function getStoreMarkerLabel(
   health: StoreCodeHealth,
   activeCodeCount: number,
 ) {
-  const codeSummary =
-    activeCodeCount > 0
-      ? `${activeCodeCount} active restroom code${activeCodeCount === 1 ? "" : "s"}`
-      : "no active restroom code yet";
+  const codeSummary = formatActiveRestroomEntrySummary(activeCodeCount);
 
   const confidenceLabel =
     health === "confident"

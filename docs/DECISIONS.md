@@ -580,6 +580,56 @@ Verification:
   - low zoom staying in a zoom-in-needed state
   - bbox mode activating only after four zoom-in taps, with `limit=200`
 
+## 2026-04-13: Model no-code restroom access as a first-class entry type
+
+Decision:
+
+- Keep the existing `codes` table and voting pipeline, but allow one explicit sentinel entry for stores where the restroom door does not require a keypad code.
+- Preserve `#` in code normalization and validation instead of stripping it.
+- Seed the verified Phoenix-metro entries through an idempotent migration rather than ad hoc JSON fixtures.
+
+Why:
+
+- The user supplied multiple Phoenix-area reports where `#` is part of the working code (`1601#`, `1190#`, `4268#`). Stripping `#` would silently corrupt correct data.
+- A no-code report needs to participate in the same conflict-resolution, voting, and history surfaces as normal keypad codes. Reusing the existing row model keeps that behavior consistent with minimal schema risk.
+- The current `codes(store_id, code_normalized)` unique constraint already gives us a safe dedupe key for both normal codes and the `No Code Required` sentinel.
+
+Tradeoff:
+
+- The read model still stores these rows in the `codes` table, so the implementation uses user-facing `entry` language in the UI while keeping the underlying persistence shape stable for this release.
+- At the time of this pass, `Higley & Elliot` remained intentionally unresolved. The live official locator resolved store `1040430`, but the synced store set contained only an excluded Overture row at `49 S Higley Rd`. Following the conservative-filter guardrail, we did not force that store into the public surface in the initial pass. This was repaired after explicit user confirmation on 2026-04-24.
+
+Verification:
+
+- Official Starbucks locator queries on 2026-04-13 resolved all eight user-supplied Phoenix labels; seven mapped cleanly to non-excluded stores already present in `public_store_read_model`.
+- Added migration `20260413170000_seed_phoenix_restroom_entries.sql`.
+- `npm run test`, `npm run lint`, `npx tsc --noEmit`, and `npm run build` all passed after the change.
+
+## 2026-04-24: Repair Higley & Elliot and complete the Phoenix entry set
+
+Decision:
+
+- Insert the live official Starbucks locator store `1040430` for `Higley & Elliot` into the store surface as a non-excluded company-operated drive-thru candidate.
+- Add the user-confirmed `No Code Required` entry for `1040430`.
+- Add the user-confirmed code `55498` for existing store `1009251`, `56th Street & Indian School`.
+
+Why:
+
+- The user explicitly confirmed they wanted the remaining entries added after seeing the previous unresolved-status report.
+- `Higley & Elliot` has strong official-source evidence: company-operated (`CO`), drive-thru, cafe seating, outdoor seating, mobile ordering, and `acceptsNonSvcMop=true`.
+- `56th Street & Indian School` already existed in the synced store surface as a non-excluded store, so adding the restroom code is a normal code-row seed.
+
+Tradeoff:
+
+- The `1040430` store repair is an official spot-check insertion rather than a full nationwide official-source resync. Its `source_payload` records that provenance so a future sync can reconcile it deliberately.
+
+Verification:
+
+- Live official locator checks on 2026-04-24 resolved:
+  - `1040430` `Higley & Elliot`, `49 S Higley Rd`, Gilbert, AZ 85296
+  - `1009251` `56th Street & Indian School`, `5549 E Indian School Rd`, Phoenix, AZ 85018
+- Connected Supabase verification through `public_store_read_model` and `public_code_read_model` returned all nine requested Phoenix metro stores/entries as active and non-excluded where applicable.
+
 ## Pending
 
 - exact sync tiling implementation

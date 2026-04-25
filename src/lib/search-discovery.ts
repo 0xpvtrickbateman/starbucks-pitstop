@@ -3,6 +3,7 @@ import type {
   SearchPhase,
   StoreSummary,
 } from "@/components/home/types";
+import { formatActiveEntrySummary } from "@/lib/restroom-entry";
 import type { MapPanelMode } from "@/stores/mapStore";
 
 export interface SearchResolution {
@@ -43,8 +44,8 @@ export function toSearchCandidate(store: StoreSummary): SearchCandidate {
   const addressLine = `${store.address}, ${store.city}, ${store.state} ${store.zip}`;
   const badge =
     store.activeCodeCount && store.activeCodeCount > 0
-      ? `${store.activeCodeCount} active code${store.activeCodeCount === 1 ? "" : "s"}`
-      : "No active code yet";
+      ? formatActiveEntrySummary(store.activeCodeCount)
+      : "No active entry yet";
 
   return {
     ...store,

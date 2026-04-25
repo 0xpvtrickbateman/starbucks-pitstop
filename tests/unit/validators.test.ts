@@ -42,6 +42,18 @@ describe("codeSubmissionSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts explicit no-code-required submissions without a keypad code", () => {
+    expect(
+      codeSubmissionSchema.parse({
+        storeId: "123",
+        entryType: "no-code-required",
+        deviceId: "4e4a8bf7-3fb3-4bba-8940-a6d86798965e",
+      }),
+    ).toMatchObject({
+      entryType: "no-code-required",
+    });
+  });
 });
 
 describe("voteSubmissionSchema", () => {

@@ -10,10 +10,17 @@ describe("normalizeCodeInput", () => {
     });
   });
 
-  it("removes non-alphanumeric characters", () => {
+  it("preserves # while removing other punctuation", () => {
     expect(normalizeCodeInput("A#1@2!")).toEqual({
-      display: "A12",
-      normalized: "A12",
+      display: "A#12",
+      normalized: "A#12",
+    });
+  });
+
+  it("returns the no-code sentinel for no-code-required entries", () => {
+    expect(normalizeCodeInput("anything here", "no-code-required")).toEqual({
+      display: "No Code Required",
+      normalized: "NOCODEREQUIRED",
     });
   });
 });

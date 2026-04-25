@@ -6,6 +6,7 @@ import { ArrowLeft, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
 import { LogoMark } from "@/components/brand/LogoMark";
 import { isLocalMockBackendEnabled } from "@/lib/config";
 import { fetchMockStoreById } from "@/lib/mock-backend";
+import { formatActiveEntrySummary } from "@/lib/restroom-entry";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchStoreById } from "@/lib/store-data";
 import { CodeDisplay } from "@/components/store/CodeDisplay";
@@ -37,8 +38,8 @@ export async function generateMetadata({
     }
 
     return {
-      title: `${store.name} restroom codes`,
-      description: `User-reported restroom keypad codes for ${store.name} in ${store.city}, ${store.state}.`,
+      title: `${store.name} restroom entries`,
+      description: `User-reported restroom access reports for ${store.name} in ${store.city}, ${store.state}.`,
     };
   } catch {
     return {};
@@ -82,9 +83,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full border border-brand-primary/10 bg-white/82 px-3 py-1.5 text-[0.75rem] font-semibold text-brand-primary-dark">
                   <Sparkles className="h-3.5 w-3.5" />
-                  {activeCodes.length
-                    ? `${activeCodes.length} active code${activeCodes.length === 1 ? "" : "s"}`
-                    : "No active code yet"}
+                  {formatActiveEntrySummary(activeCodes.length)}
                 </span>
                 {store.ownershipType ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-brand-primary/10 bg-white/82 px-3 py-1.5 text-[0.75rem] text-text-secondary">
@@ -114,10 +113,10 @@ export default async function LocationPage({ params }: LocationPageProps) {
         <div className="space-y-4">
           <div className="surface-card rounded-[1.9rem] p-5 sm:p-6">
             <p className="font-functional text-[0.66rem] tracking-[0.32em] text-brand-primary-dark/65">
-              CURRENT CANDIDATE CODES
+              CURRENT CANDIDATE ENTRIES
             </p>
             <h2 className="mt-2 font-display text-[1.55rem] text-brand-primary-dark">
-              Read the strongest user-reported options first.
+              Read the strongest user-reported access reports first.
             </h2>
             <p className="mt-3 text-[0.92rem] leading-7 text-text-secondary">
               This page is optimized for quick verification and sharing. Votes
@@ -147,11 +146,12 @@ export default async function LocationPage({ params }: LocationPageProps) {
                 NOTHING CONFIRMED YET
               </p>
               <h2 className="mt-2 font-display text-[1.5rem] text-brand-primary-dark">
-                No active codes have stuck for this store.
+                No active entry has stuck for this store.
               </h2>
               <p className="mt-3 text-[0.92rem] leading-7 text-text-secondary">
-                Open the live map to report a fresh code, vote on a candidate,
-                or browse nearby stores with stronger signal.
+                Open the live map to report a fresh code, mark a store as no
+                code required, vote on a candidate, or browse nearby stores
+                with stronger signal.
               </p>
             </div>
           )}
@@ -170,7 +170,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           </div>
 
           <div className="rounded-[1.8rem] border border-brand-primary/10 bg-white/78 px-5 py-4 text-[0.84rem] leading-6 text-text-secondary shadow-[0_12px_30px_rgba(22,54,46,0.08)]">
-            This project is not affiliated with Starbucks. Restroom codes are
+            This project is not affiliated with Starbucks. Restroom entries are
             user-reported, can change without notice, and should be verified in
             person when possible.
           </div>

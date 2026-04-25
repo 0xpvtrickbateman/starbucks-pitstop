@@ -454,3 +454,13 @@ The research gate is satisfied for design and contract verification:
 - the live locator endpoint and response contract were verified
 - viable filtering signals were identified
 - the nationwide sync will require an adaptive overlapping-grid approach because the official endpoint is radius-limited and capped at 50 results
+
+## 2026-04-13 Restroom Entry UX
+
+- The store detail submission surface now offers two explicit choices:
+  - `Code`
+  - `No Code Required`
+- The entry toggle is part of the main form, not a hidden fallback, so the user can intentionally report keypad access versus open restroom access.
+- Code input copy now explicitly allows `#`, because real Phoenix-area restroom codes in this dataset use trailing-pound formatting.
+- When a no-code entry is rendered, it should not inherit the mono keypad-code treatment. The UI should display the phrase `No Code Required` in regular display typography with a short explanatory line.
+- Count badges and section headings now prefer `entry` language in mixed contexts (`active entries`, `old entries`, `restroom access reports`) so the UI stays correct whether a store has a keypad code, a no-code report, or both.

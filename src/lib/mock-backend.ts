@@ -3,6 +3,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { haversineMiles, type BoundingBox } from "@/lib/map";
 import { calculateWilsonScore, shouldDeactivateCompetingCodes } from "@/lib/scoring";
 import { normalizeCodeInput } from "@/lib/crypto";
+import { getRestroomEntryType } from "@/lib/restroom-entry";
 import type { PublicCode, PublicStore, StoreCodeSummary } from "@/types";
 
 interface MockCodeRecord extends PublicCode {
@@ -181,12 +182,13 @@ function toMockCodeRecord(
   storeId: string,
   code: MockStoreSeed["codes"][number],
 ): MockCodeRecord {
-  const normalized = normalizeCodeInput(code.codeDisplay).normalized;
+  const entryType = getRestroomEntryType(code.codeDisplay);
+  const { display, normalized } = normalizeCodeInput(code.codeDisplay, entryType);
 
   return {
     id: code.id,
     storeId,
-    codeDisplay: normalized,
+    codeDisplay: display,
     codeNormalized: normalized,
     isActive: code.isActive,
     deactivatedReason: code.deactivatedReason,

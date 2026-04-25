@@ -2,6 +2,7 @@
 
 import { ShieldCheck, ThumbsDown, ThumbsUp } from "lucide-react";
 import { cn } from "@/components/utils/cn";
+import { isNoCodeRequiredEntry } from "@/lib/restroom-entry";
 import type { ReportedCodeSummary } from "@/components/home/types";
 
 interface CodeDisplayProps {
@@ -11,6 +12,7 @@ interface CodeDisplayProps {
 
 export function CodeDisplay({ code, className }: CodeDisplayProps) {
   const score = Math.max(0, Math.min(100, Math.round(code.confidenceScore * 100)));
+  const isNoCodeEntry = isNoCodeRequiredEntry(code.display);
 
   return (
     <article
@@ -23,11 +25,23 @@ export function CodeDisplay({ code, className }: CodeDisplayProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-functional text-[0.62rem] tracking-[0.34em] text-brand-primary-dark/65">
-            {code.isActive ? "ACTIVE CODE" : "OLD CODE"}
+            {code.isActive ? "ACTIVE ENTRY" : "OLD ENTRY"}
           </p>
-          <p className="mt-2 font-mono text-[2rem] font-semibold tracking-[0.32em] text-brand-primary-dark">
+          <p
+            className={cn(
+              "mt-2 font-semibold text-brand-primary-dark",
+              isNoCodeEntry
+                ? "font-display text-[1.45rem] leading-tight"
+                : "font-mono text-[2rem] tracking-[0.32em]",
+            )}
+          >
             {code.display}
           </p>
+          {isNoCodeEntry ? (
+            <p className="mt-2 text-[0.82rem] leading-6 text-text-secondary">
+              Restroom access was reported without a keypad code.
+            </p>
+          ) : null}
         </div>
         {code.isTop && code.isActive ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary px-3 py-1 text-[0.68rem] font-semibold text-white">

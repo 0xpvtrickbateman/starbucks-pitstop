@@ -305,7 +305,7 @@ test("submit and vote flows still refresh the detail panel", async ({ page }, te
   const detailPanel = getDetailPanel(page, testInfo.project.name, "Starbucks Roosevelt");
 
   await detailPanel.getByLabel("Code").fill("4839");
-  await detailPanel.getByRole("button", { name: "Submit code" }).click();
+  await detailPanel.getByRole("button", { name: "Submit entry" }).click();
 
   await expect(
     detailPanel.getByText("Code saved. Thanks for helping the next person."),
@@ -315,6 +315,67 @@ test("submit and vote flows still refresh the detail panel", async ({ page }, te
   await detailPanel.getByRole("button", { name: "Vote code up" }).click();
   await expect(detailPanel.getByText("Marked as still working.")).toBeVisible();
   await expect(detailPanel.getByText("1 upvotes")).toBeVisible();
+});
+
+test("supports submitting a no-code-required entry", async ({ page }, testInfo) => {
+  await page.route("**/api/search?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        stores: [
+          buildStore({
+            codeSummary: {
+              activeCodeCount: 0,
+              hasCodes: false,
+              hasConflict: false,
+              topCode: null,
+            },
+            codes: [],
+            inactiveCodeCount: 0,
+          }),
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/codes", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        existing: false,
+        codes: [
+          {
+            id: "code-no-code",
+            storeId: "12345",
+            codeDisplay: "No Code Required",
+            isActive: true,
+            deactivatedReason: null,
+            upvotes: 0,
+            downvotes: 0,
+            confidenceScore: 0,
+            createdAt: "2026-04-13T03:00:00.000Z",
+            updatedAt: "2026-04-13T03:00:00.000Z",
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByPlaceholder("Search a Starbucks location").fill("Roosevelt");
+  await page.getByPlaceholder("Search a Starbucks location").press("Enter");
+
+  const detailPanel = getDetailPanel(page, testInfo.project.name, "Starbucks Roosevelt");
+
+  await detailPanel.locator('input[value="no-code-required"]').check({ force: true });
+  await detailPanel.getByRole("button", { name: "Submit entry" }).click();
+
+  await expect(
+    detailPanel.getByText("No-code report saved. Thanks for helping the next person."),
+  ).toBeVisible();
+  await expect(detailPanel.getByText("No Code Required")).toBeVisible();
 });
 
 test("mobile keeps a single location CTA and a compact peek state", async ({ page }, testInfo) => {

@@ -1,14 +1,29 @@
 import { createHmac } from "node:crypto";
 
 import { getServerConfig } from "@/lib/config";
+import {
+  NO_CODE_REQUIRED_DISPLAY,
+  NO_CODE_REQUIRED_NORMALIZED,
+  type RestroomEntryType,
+} from "@/lib/restroom-entry";
 
-export function normalizeCodeInput(rawCode: string) {
+export function normalizeCodeInput(
+  rawCode: string,
+  entryType: RestroomEntryType = "code",
+) {
+  if (entryType === "no-code-required") {
+    return {
+      display: NO_CODE_REQUIRED_DISPLAY,
+      normalized: NO_CODE_REQUIRED_NORMALIZED,
+    };
+  }
+
   const trimmed = rawCode.trim().toUpperCase();
-  const alphanumeric = trimmed.replace(/[^A-Z0-9]/g, "");
+  const normalized = trimmed.replace(/[\s-]+/g, "").replace(/[^A-Z0-9#]/g, "");
 
   return {
-    display: alphanumeric,
-    normalized: alphanumeric,
+    display: normalized,
+    normalized,
   };
 }
 

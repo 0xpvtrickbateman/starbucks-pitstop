@@ -14,12 +14,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const parsed = codeSubmissionSchema.parse(body);
-    const { display, normalized } = normalizeCodeInput(parsed.code);
+    const { display, normalized } = normalizeCodeInput(
+      parsed.code ?? "",
+      parsed.entryType,
+    );
 
-    if (normalized.length < 3 || normalized.length > 8) {
+    if (
+      parsed.entryType === "code" &&
+      (normalized.length < 3 || normalized.length > 8)
+    ) {
       return NextResponse.json(
         {
-          error: "Codes must be 3-8 alphanumeric characters",
+          error: "Codes must be 3-8 characters using letters, numbers, or #",
         },
         { status: 400 },
       );
