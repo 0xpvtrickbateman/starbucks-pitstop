@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Compass, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { SearchBar } from "@/components/layout/SearchBar";
 import { MapControls } from "@/components/map/MapControls";
@@ -394,6 +394,11 @@ export function PitstopShell() {
     autoRequest: false,
   });
 
+  const updateViewport = useCallback((viewport: Parameters<typeof setViewport>[0]) => {
+    setBoundsQuery(null);
+    setViewport(viewport);
+  }, [setViewport]);
+
   const selectedStore = useMemo(
     () => stores.find((store) => store.id === selectedStoreId) ?? null,
     [selectedStoreId, stores],
@@ -405,7 +410,7 @@ export function PitstopShell() {
     }
 
     const timeout = window.setTimeout(() => {
-      setViewport({
+      updateViewport({
         latitude: position.latitude,
         longitude: position.longitude,
         zoom: 11.6,
@@ -417,7 +422,7 @@ export function PitstopShell() {
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [position, setViewport]);
+  }, [position, updateViewport]);
 
   useEffect(() => {
     if (status === "requesting") {
@@ -530,7 +535,7 @@ export function PitstopShell() {
     setSearchPhase("exact");
     setSelectedStoreId(store.id);
     setPanelMode("open");
-    setViewport({
+    updateViewport({
       latitude: store.latitude,
       longitude: store.longitude,
       zoom: Math.max(viewport.zoom, 13),
@@ -619,7 +624,7 @@ export function PitstopShell() {
         setSearchPhase("place");
         setSearchResults([]);
         setPanelMode("peek");
-        setViewport({
+        updateViewport({
           latitude: geocoded.latitude,
           longitude: geocoded.longitude,
           zoom: Math.max(viewport.zoom, 10.5),
@@ -650,6 +655,7 @@ export function PitstopShell() {
 
   const handleRecenter = () => {
     if (position) {
+      setBoundsQuery(null);
       recenter({
         latitude: position.latitude,
         longitude: position.longitude,
@@ -659,6 +665,7 @@ export function PitstopShell() {
       return;
     }
 
+    setBoundsQuery(null);
     recenter({
       latitude: 39.8283,
       longitude: -98.5795,
@@ -863,7 +870,7 @@ export function PitstopShell() {
                 stores={stores}
                 selectedStoreId={selectedStoreId}
                 viewport={viewport}
-                onViewportChange={setViewport}
+                onViewportChange={updateViewport}
                 onBoundsChange={setBoundsQuery}
                 panelMode={panelMode}
                 onStoreSelect={(storeId) => {
@@ -894,10 +901,10 @@ export function PitstopShell() {
 
               <MapControls
                 onZoomIn={() => {
-                  setViewport({ zoom: viewport.zoom + 0.75 });
+                  updateViewport({ zoom: viewport.zoom + 0.75 });
                 }}
                 onZoomOut={() => {
-                  setViewport({ zoom: Math.max(2, viewport.zoom - 0.75) });
+                  updateViewport({ zoom: Math.max(2, viewport.zoom - 0.75) });
                 }}
                 onRecenter={handleRecenter}
                 statusText={

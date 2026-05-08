@@ -25,10 +25,19 @@ export function StoreMarker({
   active = true,
   onClick,
 }: StoreMarkerProps) {
+  function stopMapGesture(event: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onPointerDown={stopMapGesture}
+      onClick={(event) => {
+        stopMapGesture(event);
+        onClick?.();
+      }}
       className={cn(
         "group relative flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_16px_28px_rgba(22,54,46,0.18)] transition duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-accent/70",
         HEALTH_STYLES[health],

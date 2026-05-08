@@ -1,10 +1,35 @@
 # QA Log
 
-Last updated: 2026-04-12 21:46 MST
+Last updated: 2026-05-08 13:56 MST
 
-## Status: Local premium UX pass verified; production release candidate still pending deploy plus physical-device touch-map QA
+## Status: Local map interaction crash fixed; production release candidate still pending deploy plus physical-device touch-map QA
 
-All automated checks pass, all critical code-level bugs have been fixed, live Supabase writes are persistence-verified, and Wave 2 verification completed against the canonical production URL. A later local 2026-04-12 premium UX pass then reworked the home shell, search resolution, mobile sheet, location page, and map recovery states. That local UX pass is fully verified in automation and browser spot-checks. The remaining release gates are deploying it and rerunning the literal physical-device touch-map pass on phone hardware.
+All automated checks pass after the 2026-05-08 map interaction crash fix. The crash was reproduced locally before the patch and verified fixed in dev, production build, mocked marker/cluster interaction, and the production Playwright suite. The remaining release gates are deploying it and rerunning the literal physical-device touch-map pass on phone hardware.
+
+### 2026-05-08 Map scroll/tap/drag crash verification
+
+- Pre-fix reproduction:
+  - route: `/`
+  - desktop smoke did not crash before the drag path
+  - mobile-size Playwright drag/pan crashed the page with `Maximum update depth exceeded`
+  - stack pointed to `src/components/map/StoreMap.tsx` `onMove`, `src/stores/mapStore.ts` `setViewport`, and `react-map-gl` camera redraw
+  - production mode reproduced the same path as minified React error `#185`
+- Fix verified:
+  - Mapbox live gestures are no longer controlled by React `viewState`; the app commits viewport state on movement end.
+  - marker and cluster taps stop propagation into the map gesture layer.
+  - viewport inputs are normalized and no-op updates are skipped.
+- Automated checks:
+  - `npx tsc --noEmit` -> pass
+  - `npm run lint` -> pass
+  - `npm run test` -> pass (`115/115`)
+  - `npm run build` -> pass
+  - `npm run test:e2e` -> pass (`15 passed`, `1 skipped`)
+- Browser smoke:
+  - dev `localhost:3000`, real API, desktop and mobile: page scroll, wheel over map, click/tap, and drag/pan produced zero fatal console errors and no visible app error.
+  - dev `localhost:3000`, mocked in-view stores, desktop and mobile: zoom, drag/pan, cluster expansion, and pin/cluster click produced zero fatal console errors.
+  - production `next start` on `localhost:3000`, real API, desktop and mobile: scroll/tap/drag produced zero fatal console errors and no visible app error.
+- Remaining manual gap:
+  - still rerun the literal phone Safari flow after deploy: load home, pinch-zoom, high-zoom pan, tap cluster, tap individual pin, open/close detail sheet, and zoom back out.
 
 ### 2026-04-12 Premium UX remediation verification
 

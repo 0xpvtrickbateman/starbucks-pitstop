@@ -9,6 +9,11 @@ import { AlertTriangle, MapPin, Sparkles } from "lucide-react";
 import type { StoreSummary, StoreCodeHealth } from "@/components/home/types";
 import { StoreCluster } from "@/components/map/StoreCluster";
 import { StoreMarker } from "@/components/map/StoreMarker";
+import {
+  DEFAULT_MAP_VIEWPORT,
+  mapViewportsEqual,
+  normalizeMapViewport,
+} from "@/lib/map-viewport";
 import { getMapboxRecoveryIssueForOrigin } from "@/lib/mapbox-origin";
 import { formatActiveRestroomEntrySummary } from "@/lib/restroom-entry";
 import type { MapPanelMode, MapViewport } from "@/stores/mapStore";
@@ -252,6 +257,11 @@ export function StoreMap({
 }: StoreMapProps) {
   const mapRef = useRef<MapRef | null>(null);
   const mapShellRef = useRef<HTMLDivElement | null>(null);
+  const [initialViewport] = useState<MapViewport>(() =>
+    normalizeMapViewport(viewport, DEFAULT_MAP_VIEWPORT),
+  );
+  const [cameraViewport, setCameraViewport] = useState<MapViewport>(initialViewport);
+  const cameraViewportRef = useRef<MapViewport>(initialViewport);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [recoveryIssue, setRecoveryIssue] = useState<{
     title: string;
@@ -275,17 +285,96 @@ export function StoreMap({
   const clusterFeatures = useMemo(() => {
     // Approximate the visible span at the current zoom level with a 1.5x buffer
     // to prevent clusters from popping in/out during panning.
-    const latSpan = 180 / Math.pow(2, viewport.zoom);
-    const lngSpan = 360 / Math.pow(2, viewport.zoom);
+    const latSpan = 180 / Math.pow(2, cameraViewport.zoom);
+    const lngSpan = 360 / Math.pow(2, cameraViewport.zoom);
     const buffer = 1.5;
     const bounds: [number, number, number, number] = [
-      viewport.longitude - (lngSpan * buffer) / 2,
-      Math.max(-85, viewport.latitude - (latSpan * buffer) / 2),
-      viewport.longitude + (lngSpan * buffer) / 2,
-      Math.min(85, viewport.latitude + (latSpan * buffer) / 2),
+      cameraViewport.longitude - (lngSpan * buffer) / 2,
+      Math.max(-85, cameraViewport.latitude - (latSpan * buffer) / 2),
+      cameraViewport.longitude + (lngSpan * buffer) / 2,
+      Math.min(85, cameraViewport.latitude + (latSpan * buffer) / 2),
     ];
-    return clusterIndex.getClusters(bounds, Math.max(0, Math.round(viewport.zoom))) as MapFeature[];
-  }, [clusterIndex, viewport.zoom, viewport.latitude, viewport.longitude]);
+    return clusterIndex.getClusters(bounds, Math.max(0, Math.round(cameraViewport.zoom))) as MapFeature[];
+  }, [clusterIndex, cameraViewport.zoom, cameraViewport.latitude, cameraViewport.longitude]);
+
+  function updateCameraViewport(nextViewport: MapViewport) {
+    cameraViewportRef.current = nextViewport;
+    setCameraViewport((current) =>
+      mapViewportsEqual(current, nextViewport) ? current : nextViewport,
+    );
+  }
+
+  const viewportLatitude = viewport.latitude;
+  const viewportLongitude = viewport.longitude;
+  const viewportZoom = viewport.zoom;
+  const viewportBearing = viewport.bearing;
+  const viewportPitch = viewport.pitch;
+  const viewportPadding = viewport.padding;
+  const viewportPaddingTop = viewportPadding.top;
+  const viewportPaddingRight = viewportPadding.right;
+  const viewportPaddingBottom = viewportPadding.bottom;
+  const viewportPaddingLeft = viewportPadding.left;
+
+  useEffect(() => {
+    const nextViewport = normalizeMapViewport(
+      {
+        latitude: viewportLatitude,
+        longitude: viewportLongitude,
+        zoom: viewportZoom,
+        bearing: viewportBearing,
+        pitch: viewportPitch,
+        padding: {
+          top: viewportPaddingTop,
+          right: viewportPaddingRight,
+          bottom: viewportPaddingBottom,
+          left: viewportPaddingLeft,
+        },
+      },
+      cameraViewportRef.current,
+    );
+    updateCameraViewport(nextViewport);
+
+    const map = mapRef.current;
+    if (!map || !mapLoaded) {
+      return;
+    }
+
+    const center = map.getCenter();
+    const currentViewport = normalizeMapViewport(
+      {
+        latitude: center.lat,
+        longitude: center.lng,
+        zoom: map.getZoom(),
+        bearing: map.getBearing(),
+        pitch: map.getPitch(),
+        padding: nextViewport.padding,
+      },
+      nextViewport,
+    );
+
+    if (mapViewportsEqual(currentViewport, nextViewport, 0.0001)) {
+      return;
+    }
+
+    map.jumpTo({
+      center: [nextViewport.longitude, nextViewport.latitude],
+      zoom: nextViewport.zoom,
+      bearing: nextViewport.bearing,
+      pitch: nextViewport.pitch,
+      padding: nextViewport.padding,
+    });
+  }, [
+    viewportLatitude,
+    viewportLongitude,
+    viewportZoom,
+    viewportBearing,
+    viewportPitch,
+    viewportPaddingTop,
+    viewportPaddingRight,
+    viewportPaddingBottom,
+    viewportPaddingLeft,
+    mapLoaded,
+  ]);
 
   useEffect(() => {
     if (!mapboxToken) {
@@ -352,13 +441,15 @@ export function StoreMap({
         ref={mapRef}
         mapboxAccessToken={mapboxToken}
         mapStyle={mapStyle}
-        initialViewState={viewport as never}
-        viewState={viewport as never}
-        onMove={(event) => {
-          onViewportChange(event.viewState as MapViewport & { padding?: PaddingOptions });
-        }}
+        initialViewState={initialViewport as never}
         onMoveEnd={(event) => {
-          onViewportCommit?.(event.viewState as MapViewport & { padding?: PaddingOptions });
+          const nextViewport = normalizeMapViewport(
+            event.viewState as MapViewport & { padding?: PaddingOptions },
+            cameraViewportRef.current,
+          );
+          updateCameraViewport(nextViewport);
+          onViewportChange(nextViewport);
+          onViewportCommit?.(nextViewport);
           emitBoundsQuery(mapRef.current, onBoundsChange);
         }}
         onLoad={() => {
@@ -384,8 +475,10 @@ export function StoreMap({
         dragRotate={false}
         pitchWithRotate={false}
         touchPitch={false}
+        minZoom={2}
+        maxZoom={18}
         attributionControl={false}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", touchAction: "pan-x pan-y pinch-zoom" }}
       >
         {mapLoaded
           ? clusterFeatures.map((feature) => {
@@ -409,7 +502,6 @@ export function StoreMap({
                           18,
                         );
                         onViewportChange({
-                          ...viewport,
                           latitude,
                           longitude,
                           zoom: expansionZoom,

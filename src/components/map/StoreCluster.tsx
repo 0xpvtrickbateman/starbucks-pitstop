@@ -15,10 +15,19 @@ export function StoreCluster({
   selected = false,
   onClick,
 }: StoreClusterProps) {
+  function stopMapGesture(event: React.MouseEvent<HTMLButtonElement> | React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onPointerDown={stopMapGesture}
+      onClick={(event) => {
+        stopMapGesture(event);
+        onClick?.();
+      }}
       className={cn(
         "flex h-14 w-14 items-center justify-center rounded-full border border-brand-primary/10 bg-brand-primary text-white shadow-[0_18px_30px_rgba(22,54,46,0.2)] transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-accent/70",
         selected && "scale-110 ring-2 ring-brand-accent ring-offset-2",

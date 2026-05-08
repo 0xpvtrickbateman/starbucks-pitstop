@@ -107,6 +107,7 @@ export function MobileSheet({
         <div className="glass-panel overflow-hidden rounded-t-[2rem] rounded-b-[1.75rem]">
           <div
             className="flex cursor-grab justify-center border-b border-brand-primary/10 px-4 pb-2 pt-3 active:cursor-grabbing"
+            style={{ touchAction: "pan-y" }}
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerCancel={clearGesture}

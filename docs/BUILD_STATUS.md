@@ -1,10 +1,33 @@
 # Build Status
 
-Last updated: 2026-04-12 21:46 MST
+Last updated: 2026-05-08 13:56 MST
 
-## Current State: Premium UX pass shipped locally; production release candidate still pending deploy plus physical-device touch-map QA
+## Current State: Map interaction crash fixed locally; deploy plus physical-device touch-map QA still pending
 
-The app builds, passes all automated checks, serves directly from the canonical production host, and has cleared the earlier Wave 2 production verification path on `https://starbucks-pitstop.vercel.app/`. A broader 2026-04-12 premium UX remediation pass is now complete locally across the home shell, search flow, mobile sheet, location page, and map-failure handling. The remaining release gates are deploying that pass and rerunning the literal physical-device touch-map flow on phone hardware. See `docs/QA.md` and `docs/research/verification-summary.md` for the verification chain.
+The local app builds, passes unit/lint/type checks, and the production Playwright suite now covers the map scroll/zoom/drag/tap regression in both desktop and mobile Chromium. The 2026-05-08 fix removes a controlled Mapbox camera feedback loop that crashed mobile interaction with `Maximum update depth exceeded`. The remaining release gates are deploying the fix and rerunning the literal physical-device touch-map flow on phone hardware. See `docs/QA.md` for the verification chain.
+
+## 2026-05-08 Map interaction crash fix
+
+- Reproduced the production-blocking crash locally on mobile-size Playwright: dragging/panning the map threw `Maximum update depth exceeded` from `StoreMap` `onMove` -> Zustand `setViewport` -> `react-map-gl` camera redraw.
+- Root cause: the app rendered Mapbox as a fully controlled `viewState` and wrote every gesture frame into global React/Zustand state. On mobile interaction, `react-map-gl` applied the new controlled props during layout, fired another Mapbox camera event, and repeated until React killed the page.
+- Fixes shipped:
+  - `src/components/map/StoreMap.tsx` now lets Mapbox own live gesture frames and commits normalized camera state only on `onMoveEnd`.
+  - `src/lib/map-viewport.ts` normalizes/clamps camera state before it reaches clustering or the Zustand store.
+  - `src/stores/mapStore.ts` skips no-op viewport writes instead of creating a new object every time.
+  - marker and cluster buttons stop pointer/click propagation before Mapbox treats the tap as a map gesture.
+  - programmatic viewport jumps clear stale bbox state so the next store load is based on a fresh map commit.
+- Regression coverage added:
+  - `tests/unit/map-viewport.test.ts`
+  - `tests/e2e/app.spec.ts` map gesture test covering scroll, wheel zoom, drag/pan, and marker/cluster click in desktop and mobile projects.
+- Verification:
+  - `npx tsc --noEmit` -> pass
+  - `npm run lint` -> pass
+  - `npm run test` -> pass (`115/115`)
+  - `npm run build` -> pass
+  - `npm run test:e2e` -> pass (`15 passed`, `1 skipped`)
+  - local dev Playwright smoke on `localhost:3000` -> desktop and mobile scroll/tap/drag passed with no fatal console errors
+  - local dev marker/cluster smoke with mocked in-view stores -> desktop and mobile zoom/drag/click passed with no fatal console errors
+  - local production smoke on `localhost:3000` with real local API -> desktop and mobile scroll/tap/drag passed with no fatal console errors
 
 ## 2026-04-12 Premium UX remediation pass
 

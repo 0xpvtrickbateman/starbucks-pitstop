@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const FATAL_CONSOLE_PATTERN =
+  /uncaught|typeerror|referenceerror|hydration failed|minified react error|cannot read properties of undefined|cannot read properties of null|map is undefined|maximum update depth exceeded|window is not defined|document is not defined/i;
+
 function mockGeolocationDenied() {
   return `
     window.__geoCalls = 0;
@@ -158,6 +161,91 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("map gestures do not crash the app", async ({ page }) => {
+  const fatalErrors: string[] = [];
+  const mapCenterStores = [
+    buildStore({
+      id: "map-center-1",
+      name: "Map Center Starbucks",
+      address: "100 Center Rd",
+      city: "Lebanon",
+      state: "KS",
+      zip: "66952",
+      latitude: 39.8283,
+      longitude: -98.5795,
+    }),
+    buildStore({
+      id: "map-center-2",
+      name: "Map Edge Starbucks",
+      address: "200 Center Rd",
+      city: "Lebanon",
+      state: "KS",
+      zip: "66952",
+      latitude: 39.86,
+      longitude: -98.54,
+    }),
+  ];
+
+  await page.route("**/api/locations?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        stores: mapCenterStores,
+        meta: {
+          source: "supabase",
+          queryType: "radius",
+          count: 2,
+        },
+      }),
+    });
+  });
+
+  page.on("pageerror", (error) => {
+    fatalErrors.push(error.stack ?? error.message);
+  });
+  page.on("console", (message) => {
+    const text = message.text();
+
+    if (message.type() === "error" && FATAL_CONSOLE_PATTERN.test(text)) {
+      fatalErrors.push(text);
+    }
+  });
+
+  await page.goto("/");
+
+  const map = page.locator(".mapboxgl-map, .map-frame").first();
+  await expect(map).toBeVisible();
+
+  for (let step = 0; step < 4; step += 1) {
+    await page.getByRole("button", { name: "Zoom in" }).click();
+  }
+
+  const box = await map.boundingBox();
+  expect(box).not.toBeNull();
+
+  const centerX = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const centerY = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+
+  await page.mouse.wheel(0, 420);
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.wheel(0, -520);
+  await page.mouse.click(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 90, centerY + 24, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+
+  const markerOrCluster = page.locator(".mapboxgl-marker button").first();
+  await expect(markerOrCluster).toBeVisible();
+  await markerOrCluster.click();
+  await page.waitForTimeout(500);
+
+  expect(fatalErrors).toEqual([]);
+  await expect(page.getByText("This page couldn’t load")).toHaveCount(0);
+  await expect(page.getByText("Application error")).toHaveCount(0);
+});
+
 test("does not request geolocation until a user action", async ({ page }, testInfo) => {
   await page.goto("/");
 
@@ -304,7 +392,7 @@ test("submit and vote flows still refresh the detail panel", async ({ page }, te
 
   const detailPanel = getDetailPanel(page, testInfo.project.name, "Starbucks Roosevelt");
 
-  await detailPanel.getByLabel("Code").fill("4839");
+  await detailPanel.getByRole("textbox", { name: "Code" }).fill("4839");
   await detailPanel.getByRole("button", { name: "Submit entry" }).click();
 
   await expect(
@@ -369,13 +457,13 @@ test("supports submitting a no-code-required entry", async ({ page }, testInfo) 
 
   const detailPanel = getDetailPanel(page, testInfo.project.name, "Starbucks Roosevelt");
 
-  await detailPanel.locator('input[value="no-code-required"]').check({ force: true });
+  await detailPanel.locator('label:has(input[value="no-code-required"])').click();
   await detailPanel.getByRole("button", { name: "Submit entry" }).click();
 
   await expect(
     detailPanel.getByText("No-code report saved. Thanks for helping the next person."),
   ).toBeVisible();
-  await expect(detailPanel.getByText("No Code Required")).toBeVisible();
+  await expect(detailPanel.getByText("No Code Required")).toHaveCount(2);
 });
 
 test("mobile keeps a single location CTA and a compact peek state", async ({ page }, testInfo) => {

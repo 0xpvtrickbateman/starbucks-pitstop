@@ -1,6 +1,32 @@
 # Decisions Log
 
-Last updated: 2026-04-12 21:46 MST
+Last updated: 2026-05-08 13:56 MST
+
+## 2026-05-08: Keep Mapbox gesture frames uncontrolled and commit viewport state on movement end
+
+Decision:
+
+- Stop passing a controlled `viewState` prop into the Mapbox component during normal user gestures.
+- Let Mapbox own live scroll, wheel, drag, pan, and touch camera frames.
+- Commit normalized viewport state back into Zustand on `onMoveEnd`, not every `onMove`.
+- Continue supporting programmatic camera jumps from search, recenter, zoom controls, and cluster expansion by syncing those viewport changes into the underlying map instance.
+
+Why:
+
+- The crash was reproduced locally before the fix: mobile-size map drag threw `Maximum update depth exceeded`.
+- The stack was concrete: `StoreMap` `onMove` called `setViewport`, Zustand created a new viewport object, `react-map-gl` received new controlled camera props during layout, Mapbox fired another camera event, and React repeated the loop until the page failed.
+- High-frequency global state writes are unnecessary for this product. Store loading and sheet behavior only need committed camera state, not every in-flight drag frame.
+
+Tradeoff:
+
+- Clusters refresh after the map movement commits rather than on every pixel of a drag.
+- In exchange, the map remains responsive and avoids a React/Mapbox feedback loop on mobile.
+
+Verification:
+
+- Added unit coverage for viewport normalization.
+- Added desktop and mobile Playwright regression coverage for map scroll, wheel, drag, and marker/cluster click.
+- `npx tsc --noEmit`, `npm run lint`, `npm run test`, `npm run build`, and `npm run test:e2e` passed after the change.
 
 ## 2026-04-12: Use hybrid search resolution instead of always auto-selecting the first result
 

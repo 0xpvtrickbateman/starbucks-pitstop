@@ -1,18 +1,16 @@
 "use client";
 
 import { create } from "zustand";
-import type { PaddingOptions } from "mapbox-gl";
+import {
+  DEFAULT_MAP_VIEWPORT,
+  mapViewportsEqual,
+  normalizeMapViewport,
+  type MapViewportState,
+} from "@/lib/map-viewport";
 
 type MapPanelMode = "peek" | "open" | "collapsed";
 
-interface MapViewport {
-  latitude: number;
-  longitude: number;
-  zoom: number;
-  bearing?: number;
-  pitch?: number;
-  padding: PaddingOptions;
-}
+type MapViewport = MapViewportState;
 
 interface MapStoreState {
   selectedStoreId: string | null;
@@ -28,14 +26,7 @@ interface MapStoreState {
   clearSelection: () => void;
 }
 
-const DEFAULT_VIEWPORT: MapViewport = {
-  latitude: 39.8283,
-  longitude: -98.5795,
-  zoom: 3.5,
-  bearing: 0,
-  pitch: 0,
-  padding: { top: 0, right: 0, bottom: 0, left: 0 },
-};
+const DEFAULT_VIEWPORT: MapViewport = DEFAULT_MAP_VIEWPORT;
 
 export const useMapStore = create<MapStoreState>((set) => ({
   selectedStoreId: null,
@@ -46,9 +37,17 @@ export const useMapStore = create<MapStoreState>((set) => ({
   setSearchQuery: (query) =>
     set({ searchQuery: query, lastAction: "search", panelMode: "peek" }),
   setViewport: (viewport) =>
-    set((state) => ({
-      viewport: { ...state.viewport, ...viewport },
-    })),
+    set((state) => {
+      const nextViewport = normalizeMapViewport(viewport, state.viewport);
+
+      if (mapViewportsEqual(state.viewport, nextViewport)) {
+        return state;
+      }
+
+      return {
+        viewport: nextViewport,
+      };
+    }),
   setSelectedStoreId: (id) =>
     set({
       selectedStoreId: id,
@@ -58,7 +57,7 @@ export const useMapStore = create<MapStoreState>((set) => ({
   setPanelMode: (mode) => set({ panelMode: mode }),
   recenter: (viewport) =>
     set((state) => ({
-      viewport: { ...state.viewport, ...viewport },
+      viewport: normalizeMapViewport(viewport, state.viewport),
       lastAction: "recenter",
       panelMode: "peek",
     })),
