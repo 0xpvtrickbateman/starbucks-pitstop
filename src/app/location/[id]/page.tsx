@@ -68,8 +68,8 @@ export default async function LocationPage({ params }: LocationPageProps) {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-[var(--space-page)] py-8 sm:py-10">
       <section className="glass-panel rounded-[2rem] p-5 sm:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-4">
-            <LogoMark size={60} priority />
+          <div className="flex items-start gap-4 sm:gap-5">
+            <LogoMark size={76} priority />
             <div className="min-w-0">
               <p className="font-functional text-[0.68rem] tracking-[0.28em] text-brand-primary-dark/70">
                 Starbucks Pitstop

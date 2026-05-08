@@ -1,6 +1,14 @@
 # Starbucks Pitstop Design Research
 
-Last updated: 2026-04-12 21:46 MST
+Last updated: 2026-05-08 14:04 MST
+
+## 2026-05-08 Logo visibility and premium treatment
+
+- The uploaded custom mark should be treated as the primary visible brand signal in the header and share-page masthead.
+- The mark must never appear in a dark, letterboxed, or black-line frame. It should sit on a clean white premium badge with subtle depth and an inset ring.
+- The home header uses a `64px` visible logo badge. The `/location/[id]` masthead uses a `76px` badge so the brand reads clearly beside large store titles.
+- The shared `LogoMark` scales the artwork inside the badge rather than shrinking surrounding copy or changing the product name treatment.
+- This remains custom Starbucks Pitstop branding. Do not substitute Starbucks proprietary fonts, copied wordmarks, or siren marks.
 
 ## 2026-04-12 Premium UX pass
 

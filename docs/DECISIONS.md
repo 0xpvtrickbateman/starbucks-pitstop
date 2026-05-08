@@ -1,6 +1,30 @@
 # Decisions Log
 
-Last updated: 2026-05-08 13:56 MST
+Last updated: 2026-05-08 14:04 MST
+
+## 2026-05-08: Treat the uploaded mark as the primary visible brand signal
+
+Decision:
+
+- Render the uploaded custom mark through the shared `LogoMark` badge with a white premium surface, subtle inset ring, and no dark/letterboxed framing.
+- Use a larger visible mark in the home header (`64px`) and location/share masthead (`76px`) so the logo reads clearly at normal viewing sizes.
+- Keep the fix in the app's custom brand system, not in Starbucks proprietary fonts, copied wordmarks, or siren assets.
+
+Why:
+
+- The reported header screenshot made the logo too small to read and showed dark horizontal artifacts around the mark.
+- A larger shared badge gives the app a more deliberate, premium first impression while keeping the map-first layout intact.
+
+Tradeoff:
+
+- The top header uses a little more vertical space.
+- In exchange, the brand signal is legible on mobile and desktop without shrinking or reworking the headline.
+
+Verification:
+
+- Checked the home header at `740x520` and `390x844`.
+- Checked `/location/17844` at `740x640`.
+- `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed.
 
 ## 2026-05-08: Keep Mapbox gesture frames uncontrolled and commit viewport state on movement end
 

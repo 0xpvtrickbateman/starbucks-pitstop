@@ -1,10 +1,21 @@
 # Build Status
 
-Last updated: 2026-05-08 13:56 MST
+Last updated: 2026-05-08 14:04 MST
 
 ## Current State: Map interaction crash fixed locally; deploy plus physical-device touch-map QA still pending
 
 The local app builds, passes unit/lint/type checks, and the production Playwright suite now covers the map scroll/zoom/drag/tap regression in both desktop and mobile Chromium. The 2026-05-08 fix removes a controlled Mapbox camera feedback loop that crashed mobile interaction with `Maximum update depth exceeded`. The remaining release gates are deploying the fix and rerunning the literal physical-device touch-map flow on phone hardware. See `docs/QA.md` for the verification chain.
+
+## 2026-05-08 Logo polish and header brand treatment
+
+- Updated the shared `LogoMark` so the uploaded custom mark renders as a larger premium badge with a white surface, soft inset ring, and no dark/letterboxed framing.
+- Enlarged the home header mark from `48px` to `64px` and the `/location/[id]` share-page mark from `60px` to `76px`.
+- Kept the change scoped to visual brand presentation. No store-data, sync, Supabase, or write-path contracts changed.
+- Verification:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
+  - local visual checks at `740x520` home, `390x844` home, and `740x640` `/location/17844` showed the logo larger, clean, and free of black bars.
 
 ## 2026-05-08 Map interaction crash fix
 

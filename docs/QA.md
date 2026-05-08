@@ -1,10 +1,25 @@
 # QA Log
 
-Last updated: 2026-05-08 13:56 MST
+Last updated: 2026-05-08 14:04 MST
 
 ## Status: Local map interaction crash fixed; production release candidate still pending deploy plus physical-device touch-map QA
 
 All automated checks pass after the 2026-05-08 map interaction crash fix. The crash was reproduced locally before the patch and verified fixed in dev, production build, mocked marker/cluster interaction, and the production Playwright suite. The remaining release gates are deploying it and rerunning the literal physical-device touch-map pass on phone hardware.
+
+### 2026-05-08 Logo/header visual polish verification
+
+- Scope covered:
+  - shared `LogoMark` premium badge treatment
+  - home header logo sizing
+  - `/location/[id]` share-page masthead logo sizing
+- Visual checks:
+  - in-app browser on dev `localhost:3000`, `740x520` home viewport: logo rendered larger and clean with no black bars.
+  - in-app browser on dev `localhost:3000`, `390x844` home viewport: logo remained visible and text wrapped without collision.
+  - Playwright CLI screenshot on dev `localhost:3000/location/17844`, `740x640`: share-page logo rendered larger and clean beside the store heading. The CLI was used because the in-app browser screenshot call timed out after the location-page navigation, while the local route itself returned `200`.
+- Automated checks:
+  - `npm run lint` -> pass
+  - `npx tsc --noEmit` -> pass
+  - `npm run build` -> pass
 
 ### 2026-05-08 Map scroll/tap/drag crash verification
 
